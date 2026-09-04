@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>City Builder 3 — v0.1</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>City Builder 3</h1>
+      <span>v0.1 — 2D Prototype</span>
+    </div>
+
+    <div class="stats">
+      <div>💰 <strong id="money">50.000 €</strong></div>
+      <div>👥 <strong id="population">0</strong></div>
+      <div>🏠 <strong id="buildings">0</strong></div>
+    </div>
+  </header>
+
+  <main>
+    <aside class="toolbar">
+      <h2>Bauen</h2>
+
+      <button class="tool active" data-tool="select">
+        🖱️ Auswahl
+      </button>
+
+      <button class="tool" data-tool="road">
+        🛣️ Straße <small>50 €</small>
+      </button>
+
+      <button class="tool" data-tool="residential">
+        🏠 Wohngebiet <small>500 €</small>
+      </button>
+
+      <button class="tool" data-tool="commercial">
+        🏪 Gewerbe <small>800 €</small>
+      </button>
+
+      <button class="tool" data-tool="industrial">
+        🏭 Industrie <small>1.000 €</small>
+      </button>
+
+      <button class="tool bulldoze" data-tool="bulldoze">
+        🗑️ Abriss
+      </button>
+
+      <div class="help">
+        <strong>Steuerung</strong>
+        <p>Klick: bauen</p>
+        <p>Rechtsklick: entfernen</p>
+        <p>Mausrad: Zoom</p>
+        <p>Mittlere Maustaste: Karte bewegen</p>
+      </div>
+    </aside>
+
+    <section class="game">
+      <canvas id="cityCanvas"></canvas>
+
+      <div class="message" id="message">
+        Wähle ein Werkzeug und baue deine Stadt.
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
