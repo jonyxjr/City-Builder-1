@@ -1,71 +1,55 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>City Builder 3 — v0.1</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>City Builder 1 — v0.4</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1>City Builder 3</h1>
-      <span>v0.1 — 2D Prototype</span>
-    </div>
-
-    <div class="stats">
-      <div>💰 <strong id="money">50.000 €</strong></div>
-      <div>👥 <strong id="population">0</strong></div>
-      <div>🏠 <strong id="buildings">0</strong></div>
-    </div>
-  </header>
-
-  <main>
-    <aside class="toolbar">
-      <h2>Bauen</h2>
-
-      <button class="tool active" data-tool="select">
-        🖱️ Auswahl
-      </button>
-
-      <button class="tool" data-tool="road">
-        🛣️ Straße <small>50 €</small>
-      </button>
-
-      <button class="tool" data-tool="residential">
-        🏠 Wohngebiet <small>500 €</small>
-      </button>
-
-      <button class="tool" data-tool="commercial">
-        🏪 Gewerbe <small>800 €</small>
-      </button>
-
-      <button class="tool" data-tool="industrial">
-        🏭 Industrie <small>1.000 €</small>
-      </button>
-
-      <button class="tool bulldoze" data-tool="bulldoze">
-        🗑️ Abriss
-      </button>
-
-      <div class="help">
-        <strong>Steuerung</strong>
-        <p>Klick: bauen</p>
-        <p>Rechtsklick: entfernen</p>
-        <p>Mausrad: Zoom</p>
-        <p>Mittlere Maustaste: Karte bewegen</p>
-      </div>
-    </aside>
-
-    <section class="game">
-      <canvas id="cityCanvas"></canvas>
-
-      <div class="message" id="message">
-        Wähle ein Werkzeug und baue deine Stadt.
-      </div>
-    </section>
-  </main>
-
-  <script src="script.js"></script>
+<header class="topbar">
+<h1>City Builder 1 <span>v0.4</span></h1>
+<div class="stats">
+<div>💰 <strong id="money">50.000 €</strong></div>
+<div>👥 <strong id="population">0</strong></div>
+<div>📅 <strong id="date">Jahr 1 – Monat 1</strong></div>
+</div>
+</header>
+<main>
+<aside class="sidebar">
+<h2>Bauen</h2>
+<div class="toolbar">
+<button data-tool="select" class="tool active">🖱️ Auswählen</button>
+<button data-tool="road" class="tool">🛣️ Straße <small>50 €</small></button>
+<button data-tool="power" class="tool">⚡ Kraftwerk <small>5.000 €</small></button>
+<button data-tool="water" class="tool">💧 Wasserwerk <small>4.000 €</small></button>
+<button data-tool="residential" class="tool">🏠 Wohnen <small>500 €</small></button>
+<button data-tool="commercial" class="tool">🏪 Gewerbe <small>800 €</small></button>
+<button data-tool="industrial" class="tool">🏭 Industrie <small>1.000 €</small></button>
+<button data-tool="bulldoze" class="tool">🗑️ Abriss</button>
+</div>
+<p class="help">🖱️ Ziehen zum Bauen · Rechtsklick zum Abriss · Mausrad zum Zoomen · Mittlere Maustaste zum Verschieben</p>
+<section class="panel">
+<h2>Stadt</h2>
+<div class="row"><span>🏠 Wohnraum</span><strong id="housing">0</strong></div>
+<div class="row"><span>🏪 Gewerbe</span><strong id="commercial">0</strong></div>
+<div class="row"><span>🏭 Industrie</span><strong id="industrial">0</strong></div>
+<div class="row"><span>⚡ Strom</span><strong id="power">0 / 0</strong></div>
+<div class="row"><span>💧 Wasser</span><strong id="water">0 / 0</strong></div>
+<div class="row"><span>👷 Arbeitsplätze</span><strong id="jobs">0</strong></div>
+<div class="row"><span>📈 Monatsbilanz</span><strong id="balance">0 €</strong></div>
+</section>
+<section class="panel">
+<h2>Nachfrage</h2>
+<div class="demand-row"><span>🏠 Wohnen</span><div class="bar"><i id="demandResidential"></i></div></div>
+<div class="demand-row"><span>🏪 Gewerbe</span><div class="bar"><i id="demandCommercial"></i></div></div>
+<div class="demand-row"><span>🏭 Industrie</span><div class="bar"><i id="demandIndustrial"></i></div></div>
+</section>
+<div id="warning" class="warning hidden"></div>
+<div id="message" class="message"></div>
+</aside>
+<section class="game-area"><canvas id="gameCanvas"></canvas></section>
+</main>
+<script src="script.js"></script>
 </body>
 </html>
