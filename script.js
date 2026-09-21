@@ -2,9 +2,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 const TILE = 32;
-
 const START_MONEY = 100000;
-
 const SAVE_PREFIX = "cityBuilder1_slot_";
 
 const COSTS = {
@@ -28,7 +26,6 @@ const JOBS = {
 
 const POWER_PER_PLANT = 250;
 const WATER_PER_PLANT = 250;
-
 const BASE_INCOME = {
   residential: 2,
   commercial: 18,
@@ -43,20 +40,17 @@ const BASE_EXPENSE = {
 
 const ROAD_CAPACITY = 8;
 const MAX_VEHICLES = 100;
+const MONTH_MS = 20000;
 
 let money = START_MONEY;
-
 let population = 0;
-
 let year = 1;
 let month = 1;
 
 let selectedTool = "select";
-
 let roadRotation = 0;
 
 let zoom = 1;
-
 let offsetX = 0;
 let offsetY = 0;
 
@@ -70,23 +64,21 @@ let lastPointer = {
 };
 
 let vehicles = [];
-
 let vehicleSpawnTimer = 0;
 
 let grid = {};
-
 let loans = [];
 
 let currentSlot = 1;
-
 let lastFrame = performance.now();
+
+let selectedLoanAmount = null;
 
 const els = {
   money: document.getElementById("money"),
   population: document.getElementById("population"),
   vehicles: document.getElementById("vehicles"),
   satisfaction: document.getElementById("satisfaction"),
-
   date: document.getElementById("date"),
 
   housing: document.getElementById("housing"),
@@ -103,86 +95,34 @@ const els = {
   vehicleCount: document.getElementById("vehicleCount"),
   traffic: document.getElementById("traffic"),
 
-  satisfactionCity:
-    document.getElementById(
-      "satisfactionCity"
-    ),
+  satisfactionCity: document.getElementById("satisfactionCity"),
+  balance: document.getElementById("balance"),
 
-  balance:
-    document.getElementById(
-      "balance"
-    ),
+  demandResidential: document.getElementById("demandResidential"),
+  demandCommercial: document.getElementById("demandCommercial"),
+  demandIndustrial: document.getElementById("demandIndustrial"),
 
-  demandResidential:
-    document.getElementById(
-      "demandResidential"
-    ),
+  debt: document.getElementById("debt"),
+  loanPayment: document.getElementById("loanPayment"),
+  interest: document.getElementById("interest"),
 
-  demandCommercial:
-    document.getElementById(
-      "demandCommercial"
-    ),
+  warning: document.getElementById("warning"),
+  message: document.getElementById("message"),
 
-  demandIndustrial:
-    document.getElementById(
-      "demandIndustrial"
-    ),
+  saveSlots: document.getElementById("saveSlots"),
 
-  debt:
-    document.getElementById(
-      "debt"
-    ),
-
-  loanPayment:
-    document.getElementById(
-      "loanPayment"
-    ),
-
-  interest:
-    document.getElementById(
-      "interest"
-    ),
-
-  warning:
-    document.getElementById(
-      "warning"
-    ),
-
-  message:
-    document.getElementById(
-      "message"
-    ),
-
-  saveSlots:
-    document.getElementById(
-      "saveSlots"
-    ),
-
-  bankModal:
-    document.getElementById(
-      "bankModal"
-    ),
-
-  bankMoney:
-    document.getElementById(
-      "bankMoney"
-    ),
-
-  bankDebt:
-    document.getElementById(
-      "bankDebt"
-    ),
-
-  loanInfo:
-    document.getElementById(
-      "loanInfo"
-    ),
-
-  loanList:
-    document.getElementById(
-      "loanList"
-    )
+  bankModal: document.getElementById("bankModal"),
+  bankMoney: document.getElementById("bankMoney"),
+  bankDebt: document.getElementById("bankDebt"),
+  loanInfo: document.getElementById("loanInfo"),
+  confirmLoan: document.getElementById("confirmLoan"),
+  loanList: document.getElementById("loanList")
 };
+
+
+/* =========================================================
+   BASIC HELPERS
+========================================================= */
 
 function key(x, y) {
   return `${x},${y}`;
@@ -197,136 +137,85 @@ function isRoad(x, y) {
 }
 
 function countType(type) {
-  let amount = 0;
-
-  for (const tile of Object.values(grid)) {
-    if (tile.type === type) {
-      amount++;
-    }
-  }
-
-  return amount;
+  return Object.values(grid).filter(tile => tile.type === type).length;
 }
 
 function setMessage(text) {
   els.message.textContent = text;
 
-  clearTimeout(
-    setMessage.timer
-  );
+  clearTimeout(setMessage.timer);
 
   setMessage.timer = setTimeout(() => {
     els.message.textContent = "";
   }, 2800);
 }
 
+function formatEuro(amount) {
+  return `${Math.floor(amount).toLocaleString("de-DE")} €`;
+}
+
+
+/* =========================================================
+   CANVAS
+========================================================= */
+
 function resizeCanvas() {
-  const r =
-    canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
 
-  const d =
-    window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
 
-  canvas.width =
-    Math.max(
-      1,
-      Math.floor(
-        r.width * d
-      )
-    );
-
-  canvas.height =
-    Math.max(
-      1,
-      Math.floor(
-        r.height * d
-      )
-    );
-
-  ctx.setTransform(
-    d,
-    0,
-    0,
-    d,
-    0,
-    0
-  );
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   draw();
 }
 
-window.addEventListener(
-  "resize",
-  resizeCanvas
-);
+window.addEventListener("resize", resizeCanvas);
 
-function screenToWorld(
-  clientX,
-  clientY
-) {
-  const r =
-    canvas.getBoundingClientRect();
+
+function screenToWorld(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
 
   return {
     x: Math.floor(
-      (
-        clientX -
-        r.left -
-        offsetX
-      ) /
+      (clientX - rect.left - offsetX) /
       zoom /
       TILE
     ),
 
     y: Math.floor(
-      (
-        clientY -
-        r.top -
-        offsetY
-      ) /
+      (clientY - rect.top - offsetY) /
       zoom /
       TILE
     )
   };
 }
 
+
 function worldToScreen(x, y) {
   return {
-    x:
-      x *
-      TILE *
-      zoom +
-      offsetX,
-
-    y:
-      y *
-      TILE *
-      zoom +
-      offsetY
+    x: x * TILE * zoom + offsetX,
+    y: y * TILE * zoom + offsetY
   };
 }
+
+
+/* =========================================================
+   ROADS
+========================================================= */
 
 function roadMask(x, y) {
   let mask = 0;
 
-  if (isRoad(x, y - 1)) {
-    mask |= 1;
-  }
-
-  if (isRoad(x + 1, y)) {
-    mask |= 2;
-  }
-
-  if (isRoad(x, y + 1)) {
-    mask |= 4;
-  }
-
-  if (isRoad(x - 1, y)) {
-    mask |= 8;
-  }
+  if (isRoad(x, y - 1)) mask |= 1;
+  if (isRoad(x + 1, y)) mask |= 2;
+  if (isRoad(x, y + 1)) mask |= 4;
+  if (isRoad(x - 1, y)) mask |= 8;
 
   return mask;
 }
+
 
 function hasAdjacentRoad(x, y) {
   return (
@@ -337,50 +226,31 @@ function hasAdjacentRoad(x, y) {
   );
 }
 
+
 function drawRoad(x, y) {
-  const p =
-    worldToScreen(x, y);
+  const p = worldToScreen(x, y);
 
-  const s =
-    TILE * zoom;
+  const s = TILE * zoom;
+  const mask = roadMask(x, y);
 
-  const mask =
-    roadMask(x, y);
+  const width = Math.max(8, s * 0.56);
 
-  const width =
-    Math.max(
-      8,
-      s * 0.56
-    );
-
-  const cx =
-    p.x + s / 2;
-
-  const cy =
-    p.y + s / 2;
+  const cx = p.x + s / 2;
+  const cy = p.y + s / 2;
 
   ctx.fillStyle = "#454545";
-
-  ctx.fillRect(
-    p.x,
-    p.y,
-    s,
-    s
-  );
+  ctx.fillRect(p.x, p.y, s, s);
 
   if (mask === 0) {
 
     if (roadRotation === 0) {
-
       ctx.fillRect(
         p.x,
         cy - width / 2,
         s,
         width
       );
-
     } else {
-
       ctx.fillRect(
         cx - width / 2,
         p.y,
@@ -435,14 +305,8 @@ function drawRoad(x, y) {
     }
   }
 
-  ctx.strokeStyle =
-    "#e5e7a6";
-
-  ctx.lineWidth =
-    Math.max(
-      1,
-      1.5 * zoom
-    );
+  ctx.strokeStyle = "#e5e7a6";
+  ctx.lineWidth = Math.max(1, 1.5 * zoom);
 
   ctx.setLineDash([
     6 * zoom,
@@ -456,33 +320,16 @@ function drawRoad(x, y) {
     mask === 3 ||
     mask === 6 ||
     mask === 12 ||
-    (
-      mask === 0 &&
-      roadRotation === 0
-    )
+    (mask === 0 && roadRotation === 0)
   ) {
 
-    ctx.moveTo(
-      p.x,
-      cy
-    );
-
-    ctx.lineTo(
-      p.x + s,
-      cy
-    );
+    ctx.moveTo(p.x, cy);
+    ctx.lineTo(p.x + s, cy);
 
   } else {
 
-    ctx.moveTo(
-      cx,
-      p.y
-    );
-
-    ctx.lineTo(
-      cx,
-      p.y + s
-    );
+    ctx.moveTo(cx, p.y);
+    ctx.lineTo(cx, p.y + s);
   }
 
   ctx.stroke();
@@ -490,16 +337,14 @@ function drawRoad(x, y) {
   ctx.setLineDash([]);
 }
 
-function drawBuilding(
-  x,
-  y,
-  tile
-) {
-  const p =
-    worldToScreen(x, y);
 
-  const s =
-    TILE * zoom;
+/* =========================================================
+   BUILDINGS
+========================================================= */
+
+function drawBuilding(x, y, tile) {
+  const p = worldToScreen(x, y);
+  const s = TILE * zoom;
 
   const colors = {
     power: "#f59e0b",
@@ -520,8 +365,7 @@ function drawBuilding(
   };
 
   ctx.fillStyle =
-    colors[tile.type] ||
-    "#6b7280";
+    colors[tile.type] || "#6b7280";
 
   ctx.fillRect(
     p.x + 2,
@@ -536,10 +380,7 @@ function drawBuilding(
   ctx.textBaseline = "middle";
 
   ctx.font =
-    `${Math.max(
-      10,
-      s * 0.48
-    )}px Arial`;
+    `${Math.max(10, s * 0.48)}px Arial`;
 
   ctx.fillText(
     icons[tile.type] || "",
@@ -548,126 +389,85 @@ function drawBuilding(
   );
 
   if (
-    [
-      "residential",
-      "commercial",
-      "industrial"
-    ].includes(tile.type)
+    ["residential", "commercial", "industrial"]
+      .includes(tile.type)
   ) {
 
-    const level =
-      tile.level || 0.5;
+    const level = tile.level || 0.5;
 
-    const w =
-      s * 0.74;
+    const w = s * 0.74;
+    const h = Math.max(2, s * 0.07);
 
-    const h =
-      Math.max(
-        2,
-        s * 0.07
-      );
-
-    ctx.fillStyle =
-      "#111827";
+    ctx.fillStyle = "#111827";
 
     ctx.fillRect(
-      p.x +
-        (s - w) / 2,
-      p.y +
-        s -
-        h -
-        3,
+      p.x + (s - w) / 2,
+      p.y + s - h - 3,
       w,
       h
     );
 
-    ctx.fillStyle =
-      "#fff";
+    ctx.fillStyle = "#fff";
 
     ctx.fillRect(
-      p.x +
-        (s - w) / 2,
-      p.y +
-        s -
-        h -
-        3,
-      w *
-        Math.min(
-          1,
-          level / 3
-        ),
+      p.x + (s - w) / 2,
+      p.y + s - h - 3,
+      w * Math.min(1, level / 3),
       h
     );
 
     ctx.font =
-      `${Math.max(
-        7,
-        s * 0.18
-      )}px Arial`;
+      `${Math.max(7, s * 0.18)}px Arial`;
 
     ctx.fillText(
       `L${Math.floor(level)}`,
-      p.x +
-        s -
-        7,
+      p.x + s - 7,
       p.y + 8
     );
   }
 }
 
+
+/* =========================================================
+   GRID
+========================================================= */
+
 function drawGrid() {
-  const r =
-    canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
 
   ctx.save();
 
-  ctx.translate(
-    offsetX,
-    offsetY
-  );
-
-  ctx.scale(
-    zoom,
-    zoom
-  );
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(zoom, zoom);
 
   const sx =
     Math.floor(
-      (-offsetX / zoom) /
-      TILE
+      (-offsetX / zoom) / TILE
     ) - 1;
 
   const ex =
     Math.ceil(
-      (r.width - offsetX) /
+      (rect.width - offsetX) /
       zoom /
       TILE
     ) + 1;
 
   const sy =
     Math.floor(
-      (-offsetY / zoom) /
-      TILE
+      (-offsetY / zoom) / TILE
     ) - 1;
 
   const ey =
     Math.ceil(
-      (r.height - offsetY) /
+      (rect.height - offsetY) /
       zoom /
       TILE
     ) + 1;
 
-  ctx.strokeStyle =
-    "#6c995b";
+  ctx.strokeStyle = "#6c995b";
+  ctx.lineWidth = 1 / zoom;
 
-  ctx.lineWidth =
-    1 / zoom;
-
-  for (
-    let x = sx;
-    x <= ex;
-    x++
-  ) {
+  for (let x = sx; x <= ex; x++) {
 
     ctx.beginPath();
 
@@ -684,11 +484,7 @@ function drawGrid() {
     ctx.stroke();
   }
 
-  for (
-    let y = sy;
-    y <= ey;
-    y++
-  ) {
+  for (let y = sy; y <= ey; y++) {
 
     ctx.beginPath();
 
@@ -708,11 +504,18 @@ function drawGrid() {
   ctx.restore();
 }
 
+
+/* =========================================================
+   VEHICLES
+========================================================= */
+
 function drawVehicles() {
 
-  for (
-    const vehicle of vehicles
-  ) {
+  for (const vehicle of vehicles) {
+
+    if (!vehicle.route?.length) {
+      continue;
+    }
 
     const a =
       vehicle.route[
@@ -731,51 +534,37 @@ function drawVehicles() {
       ];
 
     const ax =
-      a.x * TILE +
-      TILE / 2;
+      a.x * TILE + TILE / 2;
 
     const ay =
-      a.y * TILE +
-      TILE / 2;
+      a.y * TILE + TILE / 2;
 
     const bx =
-      b.x * TILE +
-      TILE / 2;
+      b.x * TILE + TILE / 2;
 
     const by =
-      b.y * TILE +
-      TILE / 2;
+      b.y * TILE + TILE / 2;
 
     const wx =
-      ax +
-      (bx - ax) *
-      vehicle.progress;
+      ax + (bx - ax) * vehicle.progress;
 
     const wy =
-      ay +
-      (by - ay) *
-      vehicle.progress;
+      ay + (by - ay) * vehicle.progress;
 
     const sx =
-      wx * zoom +
-      offsetX;
+      wx * zoom + offsetX;
 
     const sy =
-      wy * zoom +
-      offsetY;
+      wy * zoom + offsetY;
 
-    ctx.fillStyle =
-      "#f8fafc";
+    ctx.fillStyle = "#f8fafc";
 
     ctx.beginPath();
 
     ctx.arc(
       sx,
       sy,
-      Math.max(
-        3,
-        6 * zoom
-      ) / 2,
+      Math.max(3, 6 * zoom) / 2,
       0,
       Math.PI * 2
     );
@@ -784,59 +573,50 @@ function drawVehicles() {
   }
 }
 
+
 function draw() {
-  const r =
-    canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
 
   ctx.clearRect(
     0,
     0,
-    r.width,
-    r.height
+    rect.width,
+    rect.height
   );
 
-  ctx.fillStyle =
-    "#78a85a";
+  ctx.fillStyle = "#78a85a";
 
   ctx.fillRect(
     0,
     0,
-    r.width,
-    r.height
+    rect.width,
+    rect.height
   );
 
   drawGrid();
 
   for (
-    const [k, tile]
+    const [rawKey, tile]
     of Object.entries(grid)
   ) {
 
     const [x, y] =
-      k.split(",")
-        .map(Number);
+      rawKey.split(",").map(Number);
 
-    if (
-      tile.type === "road"
-    ) {
-
-      drawRoad(
-        x,
-        y
-      );
-
+    if (tile.type === "road") {
+      drawRoad(x, y);
     } else {
-
-      drawBuilding(
-        x,
-        y,
-        tile
-      );
+      drawBuilding(x, y, tile);
     }
   }
 
   drawVehicles();
 }
+
+
+/* =========================================================
+   CITY CALCULATIONS
+========================================================= */
 
 function infrastructure() {
 
@@ -851,63 +631,24 @@ function infrastructure() {
   let powerDemand = 0;
   let waterDemand = 0;
 
-  for (
-    const tile
-    of Object.values(grid)
-  ) {
+  for (const tile of Object.values(grid)) {
 
-    if (
-      tile.type ===
-      "residential"
-    ) {
+    const level =
+      getBuildingLevel(tile);
 
-      powerDemand +=
-        1 *
-        getBuildingLevel(
-          tile
-        );
-
-      waterDemand +=
-        1 *
-        getBuildingLevel(
-          tile
-        );
+    if (tile.type === "residential") {
+      powerDemand += level;
+      waterDemand += level;
     }
 
-    if (
-      tile.type ===
-      "commercial"
-    ) {
-
-      powerDemand +=
-        2 *
-        getBuildingLevel(
-          tile
-        );
-
-      waterDemand +=
-        2 *
-        getBuildingLevel(
-          tile
-        );
+    if (tile.type === "commercial") {
+      powerDemand += 2 * level;
+      waterDemand += 2 * level;
     }
 
-    if (
-      tile.type ===
-      "industrial"
-    ) {
-
-      powerDemand +=
-        4 *
-        getBuildingLevel(
-          tile
-        );
-
-      waterDemand +=
-        4 *
-        getBuildingLevel(
-          tile
-        );
+    if (tile.type === "industrial") {
+      powerDemand += 4 * level;
+      waterDemand += 4 * level;
     }
   }
 
@@ -918,14 +659,13 @@ function infrastructure() {
     waterDemand,
 
     powerOK:
-      powerDemand <=
-      powerCapacity,
+      powerDemand <= powerCapacity,
 
     waterOK:
-      waterDemand <=
-      waterCapacity
+      waterDemand <= waterCapacity
   };
 }
+
 
 function getBuildingLevel(tile) {
   return Math.max(
@@ -934,41 +674,31 @@ function getBuildingLevel(tile) {
   );
 }
 
+
 function calculatePopulation() {
 
-  const i =
+  const infra =
     infrastructure();
 
   let capacity = 0;
 
   for (
-    const [k, tile]
+    const [rawKey, tile]
     of Object.entries(grid)
   ) {
 
-    if (
-      tile.type !==
-      "residential"
-    ) {
+    if (tile.type !== "residential") {
       continue;
     }
 
     const [x, y] =
-      k.split(",")
-        .map(Number);
+      rawKey.split(",").map(Number);
 
-    if (
-      hasAdjacentRoad(
-        x,
-        y
-      )
-    ) {
+    if (hasAdjacentRoad(x, y)) {
 
       capacity +=
         CAPACITY.residential *
-        getBuildingLevel(
-          tile
-        );
+        getBuildingLevel(tile);
     }
   }
 
@@ -976,1154 +706,181 @@ function calculatePopulation() {
     Math.floor(
       capacity *
       (
-        i.powerOK &&
-        i.waterOK
+        infra.powerOK &&
+        infra.waterOK
           ? 1
           : 0.25
       )
     );
 }
 
+
 function calculateJobs() {
 
   let result = 0;
 
-  for (
-    const tile
-    of Object.values(grid)
-  ) {
+  for (const tile of Object.values(grid)) {
 
-    if (
-      JOBS[tile.type]
-    ) {
+    if (JOBS[tile.type]) {
 
       result +=
         JOBS[tile.type] *
-        getBuildingLevel(
-          tile
-        );
+        getBuildingLevel(tile);
     }
   }
 
-  return Math.floor(
-    result
-  );
+  return Math.floor(result);
 }
+
+
+/* =========================================================
+   BANK
+========================================================= */
 
 function calculateDebt() {
 
   return loans.reduce(
-    (
-      total,
-      loan
-    ) =>
-      total +
-      loan.remaining,
+    (sum, loan) =>
+      sum + Math.max(0, loan.remaining),
     0
   );
 }
+
 
 function calculateLoanPayment() {
 
   return loans.reduce(
-    (
-      total,
-      loan
-    ) =>
-      total +
-      loan.payment,
+    (sum, loan) =>
+      sum + Math.max(0, loan.payment),
     0
   );
 }
 
+
 function calculateInterest() {
 
   return loans.reduce(
-    (
-      total,
-      loan
-    ) =>
-      total +
-      loan.remaining *
+    (sum, loan) =>
+      sum +
       (
-        loan.rate /
-        12
+        loan.remaining *
+        (loan.rate / 12)
       ),
     0
   );
 }
 
-function calculateBaseBalance() {
 
-  let result = 0;
+function getLoanRate(amount) {
 
-  for (
-    const tile
-    of Object.values(grid)
-  ) {
-
-    const level =
-      getBuildingLevel(
-        tile
-      );
-
-    if (
-      BASE_INCOME[tile.type]
-    ) {
-
-      result +=
-        BASE_INCOME[
-          tile.type
-        ] *
-        level;
-    }
-
-    if (
-      BASE_EXPENSE[tile.type]
-    ) {
-
-      result -=
-        BASE_EXPENSE[
-          tile.type
-        ] *
-        level;
-    }
-
-    if (
-      tile.type ===
-      "power"
-    ) {
-
-      result -= 40;
-    }
-
-    if (
-      tile.type ===
-      "water"
-    ) {
-
-      result -= 30;
-    }
-
-    if (
-      tile.type ===
-      "road"
-    ) {
-
-      result -= 1;
-    }
-  }
-
-  result +=
-    population * 3;
-
-  return Math.floor(
-    result
-  );
+  return amount >= 100000
+    ? 0.06
+    : 0.05;
 }
 
-function calculateBalance() {
 
-  return Math.floor(
-    calculateBaseBalance() -
-    calculateLoanPayment()
-  );
-}
-
-function calculateTraffic() {
-
-  const roads =
-    Object.entries(grid)
-      .filter(
-        ([, tile]) =>
-          tile.type === "road"
-      );
-
-  if (!roads.length) {
-    return 0;
-  }
-
-  let total =
-    vehicles.length;
-
-  const capacity =
-    roads.length *
-    ROAD_CAPACITY;
-
-  return Math.min(
-    100,
-    Math.round(
-      (
-        total /
-        Math.max(
-          1,
-          capacity
-        )
-      ) *
-      100
-    )
-  );
-}
-
-function calculateSatisfaction() {
-
-  const i =
-    infrastructure();
-
-  const traffic =
-    calculateTraffic();
-
-  const jobs =
-    calculateJobs();
-
-  let value = 100;
-
-  if (!i.powerOK) {
-    value -= 25;
-  }
-
-  if (!i.waterOK) {
-    value -= 25;
-  }
-
-  if (traffic > 50) {
-    value -=
-      Math.floor(
-        (
-          traffic - 50
-        ) *
-        0.3
-      );
-  }
-
-  const unemployed =
-    Math.max(
-      0,
-      population - jobs
-    );
-
-  if (
-    population > 0
-  ) {
-
-    value -=
-      Math.floor(
-        (
-          unemployed /
-          population
-        ) *
-        25
-      );
-  }
-
-  value +=
-    Math.min(
-      10,
-      countType("park") *
-      2
-    );
-
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      Math.floor(value)
-    )
-  );
-}
-
-function calculateDemand() {
-
-  const residential =
-    Math.max(
-      0,
-      Math.min(
-        100,
-        60 -
-        countType(
-          "residential"
-        ) *
-        4 +
-        population *
-        0.1
-      )
-    );
-
-  const commercial =
-    Math.max(
-      0,
-      Math.min(
-        100,
-        40 +
-        population *
-        0.45 -
-        countType(
-          "commercial"
-        ) *
-        7
-      )
-    );
-
-  const industrial =
-    Math.max(
-      0,
-      Math.min(
-        100,
-        40 +
-        population *
-        0.3 -
-        countType(
-          "industrial"
-        ) *
-        7
-      )
-    );
-
-  return {
-    residential,
-    commercial,
-    industrial
-  };
-}
-
-function updateBuildings() {
-
-  const demand =
-    calculateDemand();
-
-  const satisfaction =
-    calculateSatisfaction();
-
-  const i =
-    infrastructure();
-
-  for (
-    const tile
-    of Object.values(grid)
-  ) {
-
-    if (
-      ![
-        "residential",
-        "commercial",
-        "industrial"
-      ].includes(
-        tile.type
-      )
-    ) {
-      continue;
-    }
-
-    if (
-      tile.level >= 3
-    ) {
-      continue;
-    }
-
-    const demandValue =
-      demand[
-        tile.type ===
-        "residential"
-          ? "residential"
-          : tile.type ===
-            "commercial"
-            ? "commercial"
-            : "industrial"
-      ];
-
-    if (
-      i.powerOK &&
-      i.waterOK &&
-      satisfaction >= 60 &&
-      demandValue >= 45
-    ) {
-
-      tile.level =
-        Math.min(
-          3,
-          (
-            tile.level ||
-            0.5
-          ) +
-          0.5
-        );
-    }
-  }
-}
-
-function updateWarnings() {
-
-  const i =
-    infrastructure();
-
-  const traffic =
-    calculateTraffic();
-
-  const warnings = [];
-
-  if (!i.powerOK) {
-    warnings.push(
-      "⚡ Zu wenig Strom"
-    );
-  }
-
-  if (!i.waterOK) {
-    warnings.push(
-      "💧 Zu wenig Wasser"
-    );
-  }
-
-  if (
-    traffic >= 70
-  ) {
-
-    warnings.push(
-      "🚗 Hohe Verkehrsbelastung"
-    );
-  }
-
-  if (
-    money < 0
-  ) {
-
-    warnings.push(
-      "💸 Stadt ist verschuldet"
-    );
-  }
-
-  els.warning.textContent =
-    warnings.join(
-      " · "
-    );
-
-  els.warning.classList.toggle(
-    "hidden",
-    warnings.length === 0
-  );
-}
-
-function updateUI() {
-
-  calculatePopulation();
-
-  const i =
-    infrastructure();
-
-  const jobs =
-    calculateJobs();
-
-  const unemployed =
-    Math.max(
-      0,
-      population - jobs
-    );
-
-  const traffic =
-    calculateTraffic();
-
-  const satisfaction =
-    calculateSatisfaction();
-
-  const demand =
-    calculateDemand();
-
-  const balance =
-    calculateBalance();
-
-  const debt =
-    calculateDebt();
-
-  const payment =
-    calculateLoanPayment();
-
-  const interest =
-    calculateInterest();
-
-  els.money.textContent =
-    `${Math.floor(
-      money
-    ).toLocaleString(
-      "de-DE"
-    )} €`;
-
-  els.population.textContent =
-    population.toLocaleString(
-      "de-DE"
-    );
-
-  els.vehicles.textContent =
-    vehicles.length;
-
-  els.satisfaction.textContent =
-    `${satisfaction}%`;
-
-  els.date.textContent =
-    `Jahr ${year} – Monat ${month}`;
-
-  els.housing.textContent =
-    countType(
-      "residential"
-    );
-
-  els.commercial.textContent =
-    countType(
-      "commercial"
-    );
-
-  els.industrial.textContent =
-    countType(
-      "industrial"
-    );
-
-  els.parks.textContent =
-    countType(
-      "park"
-    );
-
-  els.power.textContent =
-    `${Math.floor(
-      i.powerDemand
-    )} / ${
-      i.powerCapacity
-    }`;
-
-  els.water.textContent =
-    `${Math.floor(
-      i.waterDemand
-    )} / ${
-      i.waterCapacity
-    }`;
-
-  els.jobs.textContent =
-    jobs;
-
-  els.unemployed.textContent =
-    unemployed;
-
-  els.vehicleCount.textContent =
-    vehicles.length;
-
-  els.traffic.textContent =
-    `${traffic}%`;
-
-  els.satisfactionCity.textContent =
-    `${satisfaction}%`;
-
-  els.balance.textContent =
-    `${
-      balance >= 0
-        ? "+"
-        : ""
-    }${balance.toLocaleString(
-      "de-DE"
-    )} €`;
-
-  els.debt.textContent =
-    `${Math.floor(
-      debt
-    ).toLocaleString(
-      "de-DE"
-    )} €`;
-
-  els.loanPayment.textContent =
-    `${Math.floor(
-      payment
-    ).toLocaleString(
-      "de-DE"
-    )} €`;
-
-  els.interest.textContent =
-    `${Math.floor(
-      interest
-    ).toLocaleString(
-      "de-DE"
-    )} €`;
-
-  els.demandResidential.style.width =
-    `${demand.residential}%`;
-
-  els.demandCommercial.style.width =
-    `${demand.commercial}%`;
-
-  els.demandIndustrial.style.width =
-    `${demand.industrial}%`;
-
-  updateWarnings();
-
-  updateSaveSlots();
-
-  updateBankUI();
-}
-
-function setTool(tool) {
-
-  selectedTool = tool;
-
-  document
-    .querySelectorAll(
-      ".tool[data-tool]"
-    )
-    .forEach(
-      button => {
-
-        button.classList.toggle(
-          "active",
-          button.dataset.tool ===
-          tool
-        );
-      }
-    );
-
-  if (
-    tool === "road"
-  ) {
-
-    setMessage(
-      `Straße: ${
-        roadRotation === 0
-          ? "horizontal"
-          : "vertikal"
-      } · R zum Drehen`
-    );
-  }
-}
-
-document
-  .querySelectorAll(
-    ".tool[data-tool]"
-  )
-  .forEach(
-    button => {
-
-      button.addEventListener(
-        "click",
-        () =>
-          setTool(
-            button.dataset.tool
-          )
-      );
-    }
-  );
-
-document
-  .getElementById(
-    "rotateRoad"
-  )
-  .addEventListener(
-    "click",
-    rotateRoad
-  );
-
-function rotateRoad() {
-
-  roadRotation =
-    (
-      roadRotation + 1
-    ) % 2;
-
-  setMessage(
-    `Straßenrichtung: ${
-      roadRotation === 0
-        ? "horizontal"
-        : "vertikal"
-    }`
-  );
-
-  draw();
-}
-
-window.addEventListener(
-  "keydown",
-  e => {
-
-    if (
-      e.key.toLowerCase() ===
-      "r" &&
-      selectedTool ===
-      "road"
-    ) {
-
-      e.preventDefault();
-
-      rotateRoad();
-    }
-  }
-);
-
-function buildAt(
-  x,
-  y,
-  tool,
-  silent = false
+function getLoanPayment(
+  amount,
+  annualRate,
+  months
 ) {
 
-  const existing =
-    getTile(x, y);
+  const monthlyRate =
+    annualRate / 12;
 
-  if (
-    tool === "select"
-  ) {
-
-    if (!silent) {
-
-      setMessage(
-        existing
-          ? `${existing.type} — Feld ${x}, ${y}`
-          : "Dieses Feld ist leer."
-      );
-    }
-
-    return;
+  if (monthlyRate === 0) {
+    return amount / months;
   }
 
-  if (
-    tool === "bulldoze"
-  ) {
-
-    if (!existing) {
-      return;
-    }
-
-    delete grid[
-      key(x, y)
-    ];
-
-    vehicles =
-      vehicles.filter(
-        vehicle =>
-          !vehicle.route.some(
-            p =>
-              p.x === x &&
-              p.y === y
-          )
-      );
-
-    money += 100;
-
-    saveGame();
-
-    updateUI();
-
-    draw();
-
-    if (!silent) {
-      setMessage(
-        "Objekt entfernt. +100 €"
-      );
-    }
-
-    return;
-  }
-
-  if (existing) {
-
-    if (!silent) {
-
-      setMessage(
-        "Dieses Feld ist bereits belegt."
-      );
-    }
-
-    return;
-  }
-
-  const zone =
-    [
-      "residential",
-      "commercial",
-      "industrial"
-    ].includes(
-      tool
-    );
-
-  if (
-    zone &&
-    !hasAdjacentRoad(
-      x,
-      y
+  return (
+    amount *
+    monthlyRate *
+    Math.pow(
+      1 + monthlyRate,
+      months
     )
-  ) {
-
-    if (!silent) {
-
-      setMessage(
-        "Gebiete müssen direkt an einer Straße liegen!"
-      );
-    }
-
-    return;
-  }
-
-  if (
-    money <
-    COSTS[tool]
-  ) {
-
-    if (!silent) {
-
-      setMessage(
-        "Nicht genug Geld!"
-      );
-    }
-
-    return;
-  }
-
-  money -=
-    COSTS[tool];
-
-  grid[
-    key(x, y)
-  ] = {
-    type: tool,
-
-    level:
-      zone
-        ? 0.5
-        : 1
-  };
-
-  saveGame();
-
-  updateUI();
-
-  draw();
-}
-
-function getSaveKey(slot) {
-  return `${SAVE_PREFIX}${slot}`;
-}
-
-function getSaveData() {
-
-  return {
-    version: "0.6",
-
-    money,
-    population,
-
-    year,
-    month,
-
-    grid,
-    vehicles,
-    loans
-  };
-}
-
-function saveGame() {
-
-  localStorage.setItem(
-    getSaveKey(
-      currentSlot
-    ),
-    JSON.stringify(
-      getSaveData()
-    )
-  );
-
-  updateSaveSlots();
-}
-
-function loadSlot(slot) {
-
-  const raw =
-    localStorage.getItem(
-      getSaveKey(slot)
-    );
-
-  if (!raw) {
-
-    setMessage(
-      "Dieser Speicherplatz ist leer."
-    );
-
-    return;
-  }
-
-  try {
-
-    const data =
-      JSON.parse(raw);
-
-    money =
-      data.money ??
-      START_MONEY;
-
-    population =
-      data.population ??
-      0;
-
-    year =
-      data.year ??
-      1;
-
-    month =
-      data.month ??
-      1;
-
-    grid =
-      data.grid || {};
-
-    vehicles =
-      Array.isArray(
-        data.vehicles
-      )
-        ? data.vehicles
-        : [];
-
-    loans =
-      Array.isArray(
-        data.loans
-      )
-        ? data.loans
-        : [];
-
-    currentSlot =
-      slot;
-
-    updateUI();
-
-    draw();
-
-    setMessage(
-      `Spielstand ${slot} geladen.`
-    );
-
-  } catch {
-
-    setMessage(
-      "Spielstand konnte nicht geladen werden."
-    );
-  }
-}
-
-function newGame() {
-
-  const confirmed =
-    confirm(
-      "Möchtest du wirklich eine neue Stadt starten?\n\n" +
-      "Der aktuelle Spielstand wird nicht automatisch gelöscht. " +
-      "Du kannst ihn vorher in einem Speicherplatz sichern."
-    );
-
-  if (!confirmed) {
-    return;
-  }
-
-  money =
-    START_MONEY;
-
-  population = 0;
-
-  year = 1;
-  month = 1;
-
-  grid = {};
-
-  vehicles = [];
-
-  loans = [];
-
-  zoom = 1;
-
-  offsetX = 0;
-  offsetY = 0;
-
-  saveGame();
-
-  updateUI();
-
-  draw();
-
-  setMessage(
-    "Neue Stadt gestartet. 100.000 € Startkapital."
+  ) /
+  (
+    Math.pow(
+      1 + monthlyRate,
+      months
+    ) - 1
   );
 }
 
-document
-  .getElementById(
-    "newGame"
-  )
-  .addEventListener(
-    "click",
-    newGame
-  );
 
-function updateSaveSlots() {
+function getMaximumDebt() {
 
-  els.saveSlots.innerHTML =
-    "";
+  const buildings =
+    Object.values(grid).filter(
+      tile =>
+        tile.type !== "road"
+    ).length;
 
-  for (
-    let slot = 1;
-    slot <= 3;
-    slot++
-  ) {
-
-    const raw =
-      localStorage.getItem(
-        getSaveKey(slot)
-      );
-
-    const div =
-      document.createElement(
-        "div"
-      );
-
-    div.className =
-      "save-slot";
-
-    if (raw) {
-
-      try {
-
-        const data =
-          JSON.parse(raw);
-
-        const cityPopulation =
-          data.population || 0;
-
-        const cityMoney =
-          data.money || 0;
-
-        div.innerHTML = `
-          <div class="save-slot-title">
-            💾 Speicherplatz ${slot}
-          </div>
-
-          <div class="save-slot-info">
-            Jahr ${data.year || 1} – Monat ${data.month || 1}
-            · 👥 ${cityPopulation}
-            · 💰 ${cityMoney.toLocaleString("de-DE")} €
-          </div>
-
-          <div class="slot-buttons">
-            <button data-load="${slot}">
-              Laden
-            </button>
-
-            <button data-save="${slot}">
-              Überschreiben
-            </button>
-
-            <button data-delete="${slot}">
-              Löschen
-            </button>
-          </div>
-        `;
-
-      } catch {
-
-        div.innerHTML =
-          `Speicherplatz ${slot} beschädigt.`;
-      }
-
-    } else {
-
-      div.innerHTML = `
-        <div class="save-slot-title">
-          💾 Speicherplatz ${slot}
-        </div>
-
-        <div class="save-slot-info">
-          Leer
-        </div>
-
-        <div class="slot-buttons">
-          <button data-save="${slot}">
-            Speichern
-          </button>
-        </div>
-      `;
-    }
-
-    els.saveSlots.appendChild(
-      div
-    );
-  }
-
-  document
-    .querySelectorAll(
-      "[data-load]"
-    )
-    .forEach(
-      button => {
-
-        button.onclick =
-          () =>
-            loadSlot(
-              Number(
-                button.dataset.load
-              )
-            );
-      }
-    );
-
-  document
-    .querySelectorAll(
-      "[data-save]"
-    )
-    .forEach(
-      button => {
-
-        button.onclick =
-          () => {
-
-            const slot =
-              Number(
-                button.dataset.save
-              );
-
-            currentSlot =
-              slot;
-
-            saveGame();
-
-            setMessage(
-              `Spiel in Speicherplatz ${slot} gespeichert.`
-            );
-          };
-      }
-    );
-
-  document
-    .querySelectorAll(
-      "[data-delete]"
-    )
-    .forEach(
-      button => {
-
-        button.onclick =
-          () => {
-
-            const slot =
-              Number(
-                button.dataset.delete
-              );
-
-            const confirmed =
-              confirm(
-                `Speicherplatz ${slot} wirklich löschen?`
-              );
-
-            if (!confirmed) {
-              return;
-            }
-
-            localStorage.removeItem(
-              getSaveKey(slot)
-            );
-
-            updateSaveSlots();
-
-            setMessage(
-              `Speicherplatz ${slot} gelöscht.`
-            );
-          };
-      }
-    );
+  return 100000 + buildings * 5000;
 }
+
+
+/* =========================================================
+   LOAN PREVIEW
+========================================================= */
+
+function updateLoanPreview(amount) {
+
+  const rate =
+    getLoanRate(amount);
+
+  const months = 24;
+
+  const payment =
+    getLoanPayment(
+      amount,
+      rate,
+      months
+    );
+
+  const currentDebt =
+    calculateDebt();
+
+  const maxDebt =
+    getMaximumDebt();
+
+  selectedLoanAmount = amount;
+
+  els.loanInfo.innerHTML = `
+    <strong>${formatEuro(amount)}</strong><br>
+    Zinssatz: ${(rate * 100).toFixed(1)} % pro Jahr<br>
+    Laufzeit: ${months} Monate<br>
+    Monatsrate: ${formatEuro(payment)}<br>
+    Aktuelle Schulden: ${formatEuro(currentDebt)}<br>
+    Kreditlimit: ${formatEuro(maxDebt)}
+  `;
+
+  els.confirmLoan.disabled =
+    currentDebt + amount > maxDebt;
+}
+
+
+function clearLoanSelection() {
+
+  selectedLoanAmount = null;
+
+  els.confirmLoan.disabled = true;
+
+  els.loanInfo.textContent =
+    "Wähle einen Kredit.";
+
+  document
+    .querySelectorAll(".loan-button")
+    .forEach(button => {
+      button.classList.remove("selected");
+    });
+}
+
+
+/* =========================================================
+   BANK UI
+========================================================= */
 
 function openBank() {
 
@@ -2134,6 +891,7 @@ function openBank() {
   );
 }
 
+
 function closeBank() {
 
   els.bankModal.classList.add(
@@ -2141,107 +899,124 @@ function closeBank() {
   );
 }
 
+
 document
-  .getElementById(
-    "openBank"
-  )
+  .getElementById("openBank")
   .addEventListener(
     "click",
     openBank
   );
 
+
 document
-  .getElementById(
-    "closeBank"
-  )
+  .getElementById("closeBank")
   .addEventListener(
     "click",
     closeBank
   );
 
-function getLoanRate(amount) {
 
-  if (
-    amount >= 100000
-  ) {
-    return 0.06;
+els.bankModal.addEventListener(
+  "click",
+  event => {
+
+    if (event.target === els.bankModal) {
+      closeBank();
+    }
   }
+);
 
-  return 0.05;
-}
 
-function getLoanPayment(
-  amount,
-  rate,
-  months
-) {
+window.addEventListener(
+  "keydown",
+  event => {
 
-  const monthlyRate =
-    rate / 12;
-
-  if (
-    monthlyRate === 0
-  ) {
-    return amount / months;
+    if (
+      event.key === "Escape" &&
+      !els.bankModal.classList.contains("hidden")
+    ) {
+      closeBank();
+    }
   }
+);
 
-  return (
-    amount *
-    monthlyRate *
-    Math.pow(
-      1 +
-      monthlyRate,
-      months
-    )
-  ) /
-  (
-    Math.pow(
-      1 +
-      monthlyRate,
-      months
-    ) -
-    1
+
+document
+  .querySelector(".loan-grid")
+  .addEventListener(
+    "click",
+    event => {
+
+      const button =
+        event.target.closest(
+          ".loan-button"
+        );
+
+      if (!button) {
+        return;
+      }
+
+      const amount =
+        Number(button.dataset.loan);
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+      ) {
+        return;
+      }
+
+      document
+        .querySelectorAll(".loan-button")
+        .forEach(other => {
+          other.classList.remove(
+            "selected"
+          );
+        });
+
+      button.classList.add(
+        "selected"
+      );
+
+      updateLoanPreview(amount);
+    }
   );
-}
+
+
+els.confirmLoan.addEventListener(
+  "click",
+  () => {
+
+    if (
+      selectedLoanAmount === null
+    ) {
+      return;
+    }
+
+    takeLoan(
+      selectedLoanAmount
+    );
+  }
+);
+
 
 function takeLoan(amount) {
 
   const rate =
-    getLoanRate(
-      amount
-    );
+    getLoanRate(amount);
 
   const totalDebt =
     calculateDebt();
 
   const maximumDebt =
-    Math.max(
-      100000,
-      (
-        countType(
-          "residential"
-        ) *
-        5000
-      ) +
-      (
-        countType(
-          "commercial"
-        ) *
-        10000
-      ) +
-      (
-        countType(
-          "industrial"
-        ) *
-        15000
-      )
-    );
+    getMaximumDebt();
 
   if (
-    totalDebt +
-    amount >
+    totalDebt + amount >
     maximumDebt
   ) {
+
+    updateLoanPreview(amount);
 
     setMessage(
       "Dieser Kredit würde dein Kreditlimit überschreiten."
@@ -2250,8 +1025,7 @@ function takeLoan(amount) {
     return;
   }
 
-  const months =
-    24;
+  const months = 24;
 
   const payment =
     getLoanPayment(
@@ -2261,6 +1035,7 @@ function takeLoan(amount) {
     );
 
   loans.push({
+
     id:
       Date.now() +
       Math.random(),
@@ -2279,8 +1054,7 @@ function takeLoan(amount) {
     payment
   });
 
-  money +=
-    amount;
+  money += amount;
 
   saveGame();
 
@@ -2288,54 +1062,25 @@ function takeLoan(amount) {
 
   updateBankUI();
 
+  clearLoanSelection();
+
   setMessage(
     `${amount.toLocaleString("de-DE")} € Kredit aufgenommen.`
   );
 }
 
-document
-  .querySelectorAll(
-    ".loan-button"
-  )
-  .forEach(
-    button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          takeLoan(
-            Number(
-              button.dataset.loan
-            )
-          );
-        }
-      );
-    }
-  );
 
 function updateBankUI() {
 
-  const debt =
-    calculateDebt();
-
   els.bankMoney.textContent =
-    `${Math.floor(
-      money
-    ).toLocaleString(
-      "de-DE"
-    )} €`;
+    formatEuro(money);
 
   els.bankDebt.textContent =
-    `${Math.floor(
-      debt
-    ).toLocaleString(
-      "de-DE"
-    )} €`;
+    formatEuro(
+      calculateDebt()
+    );
 
-  if (
-    !loans.length
-  ) {
+  if (!loans.length) {
 
     els.loanList.innerHTML =
       `<div class="loan-card">
@@ -2345,54 +1090,384 @@ function updateBankUI() {
     return;
   }
 
-  els.loanList.innerHTML =
-    "";
+  els.loanList.innerHTML = "";
 
   loans.forEach(
     (loan, index) => {
 
       const div =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
       div.className =
         "loan-card";
 
       div.innerHTML = `
-        <strong>
-          Kredit #${index + 1}
-        </strong>
-
-        Restschuld:
-        ${Math.floor(
-          loan.remaining
-        ).toLocaleString("de-DE")} €
-
-        <br>
-
-        Monatsrate:
-        ${Math.floor(
-          loan.payment
-        ).toLocaleString("de-DE")} €
-
-        <br>
-
-        Zins:
-        ${(loan.rate * 100).toFixed(1)} %
-
-        <br>
-
-        Restlaufzeit:
-        ${loan.monthsLeft} Monate
+        <strong>Kredit #${index + 1}</strong>
+        Kreditbetrag: ${formatEuro(loan.original)}<br>
+        Restschuld: ${formatEuro(loan.remaining)}<br>
+        Monatsrate: ${formatEuro(loan.payment)}<br>
+        Zins: ${(loan.rate * 100).toFixed(1)} %<br>
+        Restlaufzeit: ${loan.monthsLeft} Monate
       `;
 
-      els.loanList.appendChild(
-        div
-      );
+      els.loanList.appendChild(div);
     }
   );
 }
+
+
+/* =========================================================
+   BUILDINGS
+========================================================= */
+
+function updateBuildings() {
+
+  for (const tile of Object.values(grid)) {
+
+    if (
+      ![
+        "residential",
+        "commercial",
+        "industrial"
+      ].includes(tile.type)
+    ) {
+      continue;
+    }
+
+    const level =
+      getBuildingLevel(tile);
+
+    const chance =
+      0.08 + level * 0.02;
+
+    if (
+      Math.random() < chance &&
+      level < 3
+    ) {
+
+      tile.level =
+        Math.min(
+          3,
+          level + 0.1
+        );
+    }
+  }
+}
+
+
+/* =========================================================
+   DEMAND
+========================================================= */
+
+function calculateDemand() {
+
+  const housing =
+    countType("residential");
+
+  const commercial =
+    countType("commercial");
+
+  const industrial =
+    countType("industrial");
+
+  const jobs =
+    calculateJobs();
+
+  const unemployed =
+    Math.max(
+      0,
+      population - jobs
+    );
+
+  const residentialDemand =
+    Math.max(
+      -100,
+      Math.min(
+        100,
+        40 -
+        housing * 2 +
+        unemployed * 2
+      )
+    );
+
+  const commercialDemand =
+    Math.max(
+      -100,
+      Math.min(
+        100,
+        population * 2 -
+        commercial * 5 -
+        20
+      )
+    );
+
+  const industrialDemand =
+    Math.max(
+      -100,
+      Math.min(
+        100,
+        population * 1.5 -
+        industrial * 6 -
+        10
+      )
+    );
+
+  return {
+    residential: residentialDemand,
+    commercial: commercialDemand,
+    industrial: industrialDemand
+  };
+}
+
+
+/* =========================================================
+   TRAFFIC
+========================================================= */
+
+function calculateTraffic() {
+
+  const roads =
+    countType("road");
+
+  const trafficCapacity =
+    roads * ROAD_CAPACITY;
+
+  if (trafficCapacity <= 0) {
+    return vehicles.length > 0
+      ? 100
+      : 0;
+  }
+
+  return Math.min(
+    100,
+    Math.round(
+      (
+        vehicles.length /
+        trafficCapacity
+      ) * 100
+    )
+  );
+}
+
+
+/* =========================================================
+   SATISFACTION
+========================================================= */
+
+function calculateSatisfaction() {
+
+  const parks =
+    countType("park");
+
+  const traffic =
+    calculateTraffic();
+
+  const infra =
+    infrastructure();
+
+  let result = 100;
+
+  result +=
+    Math.min(
+      15,
+      parks * 2
+    );
+
+  result -=
+    Math.max(
+      0,
+      traffic - 40
+    ) * 0.3;
+
+  if (!infra.powerOK) {
+    result -= 20;
+  }
+
+  if (!infra.waterOK) {
+    result -= 20;
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(result)
+    )
+  );
+}
+
+
+/* =========================================================
+   FINANCES
+========================================================= */
+
+function calculateBaseBalance() {
+
+  let income = 0;
+  let expense = 0;
+
+  for (const tile of Object.values(grid)) {
+
+    const type =
+      tile.type;
+
+    const level =
+      getBuildingLevel(tile);
+
+    if (BASE_INCOME[type]) {
+
+      income +=
+        BASE_INCOME[type] *
+        level;
+    }
+
+    if (BASE_EXPENSE[type]) {
+
+      expense +=
+        BASE_EXPENSE[type] *
+        level;
+    }
+  }
+
+  return income - expense;
+}
+
+
+function calculateBalance() {
+
+  return (
+    calculateBaseBalance() -
+    calculateLoanPayment()
+  );
+}
+
+
+/* =========================================================
+   BUILD / DEMOLISH
+========================================================= */
+
+function buildAt(
+  x,
+  y,
+  type,
+  drag = false
+) {
+
+  if (
+    x < -100 ||
+    x > 100 ||
+    y < -100 ||
+    y > 100
+  ) {
+    return;
+  }
+
+  if (type === "select") {
+
+    const tile =
+      getTile(x, y);
+
+    if (tile) {
+
+      setMessage(
+        `${tile.type} auf ${x}/${y}`
+      );
+    }
+
+    return;
+  }
+
+  if (type === "bulldoze") {
+
+    const existing =
+      getTile(x, y);
+
+    if (!existing) {
+      return;
+    }
+
+    delete grid[key(x, y)];
+
+    saveGame();
+    updateUI();
+    draw();
+
+    setMessage(
+      "Gebäude entfernt."
+    );
+
+    return;
+  }
+
+  if (getTile(x, y)) {
+    return;
+  }
+
+  const cost =
+    COSTS[type];
+
+  if (
+    !Number.isFinite(cost)
+  ) {
+    return;
+  }
+
+  if (money < cost) {
+
+    if (!drag) {
+      setMessage(
+        "Nicht genug Geld."
+      );
+    }
+
+    return;
+  }
+
+  if (
+    [
+      "residential",
+      "commercial",
+      "industrial"
+    ].includes(type)
+  ) {
+
+    if (!hasAdjacentRoad(x, y)) {
+
+      if (!drag) {
+        setMessage(
+          "Dieses Gebäude braucht eine angrenzende Straße."
+        );
+      }
+
+      return;
+    }
+  }
+
+  grid[key(x, y)] = {
+    type,
+    level:
+      [
+        "residential",
+        "commercial",
+        "industrial"
+      ].includes(type)
+        ? 0.5
+        : undefined
+  };
+
+  money -= cost;
+
+  saveGame();
+
+  updateUI();
+
+  draw();
+}
+
+
+/* =========================================================
+   MONTH
+========================================================= */
 
 function advanceMonth() {
 
@@ -2402,8 +1477,7 @@ function advanceMonth() {
     calculateLoanPayment();
 
   for (
-    let i =
-      loans.length - 1;
+    let i = loans.length - 1;
     i >= 0;
     i--
   ) {
@@ -2413,9 +1487,7 @@ function advanceMonth() {
 
     const monthlyInterest =
       loan.remaining *
-      (
-        loan.rate / 12
-      );
+      (loan.rate / 12);
 
     const principal =
       Math.max(
@@ -2433,8 +1505,7 @@ function advanceMonth() {
     loan.monthsLeft--;
 
     if (
-      loan.remaining <=
-        0.01 ||
+      loan.remaining <= 0.01 ||
       loan.monthsLeft <= 0
     ) {
 
@@ -2450,15 +1521,11 @@ function advanceMonth() {
   money +=
     calculateBaseBalance();
 
-  money -=
-    payment;
+  money -= payment;
 
   month++;
 
-  if (
-    month > 12
-  ) {
-
+  if (month > 12) {
     month = 1;
     year++;
   }
@@ -2467,29 +1534,614 @@ function advanceMonth() {
 
   saveGame();
 
+  updateBankUI();
+
+  const balance =
+    calculateBalance();
+
   setMessage(
     `Monat abgeschlossen. Monatsbilanz: ${
-      calculateBalance() >= 0
-        ? "+"
-        : ""
-    }${calculateBalance().toLocaleString("de-DE")} €`
+      balance >= 0 ? "+" : ""
+    }${balance.toLocaleString("de-DE")} €`
   );
 }
 
+
+/* =========================================================
+   SAVE SYSTEM
+========================================================= */
+
+function getSaveKey(slot) {
+  return `${SAVE_PREFIX}${slot}`;
+}
+
+
+function getGameState() {
+
+  return {
+    money,
+    population,
+    year,
+    month,
+    selectedTool,
+    roadRotation,
+    zoom,
+    offsetX,
+    offsetY,
+    grid,
+    loans
+  };
+}
+
+
+function saveGame(slot = currentSlot) {
+
+  const state =
+    getGameState();
+
+  localStorage.setItem(
+    getSaveKey(slot),
+    JSON.stringify(state)
+  );
+
+  updateSaveSlots();
+}
+
+
+function loadSlot(slot) {
+
+  const raw =
+    localStorage.getItem(
+      getSaveKey(slot)
+    );
+
+  if (!raw) {
+    return false;
+  }
+
+  try {
+
+    const state =
+      JSON.parse(raw);
+
+    money =
+      Number.isFinite(state.money)
+        ? state.money
+        : START_MONEY;
+
+    population =
+      Number.isFinite(state.population)
+        ? state.population
+        : 0;
+
+    year =
+      Number.isFinite(state.year)
+        ? state.year
+        : 1;
+
+    month =
+      Number.isFinite(state.month)
+        ? state.month
+        : 1;
+
+    selectedTool =
+      state.selectedTool ||
+      "select";
+
+    roadRotation =
+      state.roadRotation || 0;
+
+    zoom =
+      Number.isFinite(state.zoom)
+        ? state.zoom
+        : 1;
+
+    offsetX =
+      Number.isFinite(state.offsetX)
+        ? state.offsetX
+        : 0;
+
+    offsetY =
+      Number.isFinite(state.offsetY)
+        ? state.offsetY
+        : 0;
+
+    grid =
+      state.grid || {};
+
+    loans =
+      Array.isArray(state.loans)
+        ? state.loans
+        : [];
+
+    currentSlot = slot;
+
+    updateToolButtons();
+    updateUI();
+    updateBankUI();
+    draw();
+
+    setMessage(
+      `Spielstand ${slot} geladen.`
+    );
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      "Savegame konnte nicht geladen werden:",
+      error
+    );
+
+    setMessage(
+      "Spielstand konnte nicht geladen werden."
+    );
+
+    return false;
+  }
+}
+
+
+function deleteSlot(slot) {
+
+  localStorage.removeItem(
+    getSaveKey(slot)
+  );
+
+  updateSaveSlots();
+
+  setMessage(
+    `Spielstand ${slot} gelöscht.`
+  );
+}
+
+
+function updateSaveSlots() {
+
+  els.saveSlots.innerHTML = "";
+
+  for (
+    let slot = 1;
+    slot <= 3;
+    slot++
+  ) {
+
+    const raw =
+      localStorage.getItem(
+        getSaveKey(slot)
+      );
+
+    const div =
+      document.createElement("div");
+
+    div.className =
+      "save-slot";
+
+    if (!raw) {
+
+      div.innerHTML = `
+        <div class="save-slot-title">
+          Spielstand ${slot}
+        </div>
+
+        <div class="save-slot-info">
+          Leer
+        </div>
+
+        <div class="slot-buttons">
+          <button type="button" data-action="save" data-slot="${slot}">
+            Speichern
+          </button>
+        </div>
+      `;
+
+    } else {
+
+      let state = null;
+
+      try {
+        state =
+          JSON.parse(raw);
+      } catch {
+        state = null;
+      }
+
+      const savedMoney =
+        state &&
+        Number.isFinite(state.money)
+          ? formatEuro(state.money)
+          : "Unbekannt";
+
+      const savedYear =
+        state &&
+        Number.isFinite(state.year)
+          ? `Jahr ${state.year} – Monat ${state.month || 1}`
+          : "Unbekannt";
+
+      div.innerHTML = `
+        <div class="save-slot-title">
+          Spielstand ${slot}
+        </div>
+
+        <div class="save-slot-info">
+          ${savedMoney}<br>
+          ${savedYear}
+        </div>
+
+        <div class="slot-buttons">
+
+          <button
+            type="button"
+            data-action="load"
+            data-slot="${slot}">
+            Laden
+          </button>
+
+          <button
+            type="button"
+            data-action="save"
+            data-slot="${slot}">
+            Speichern
+          </button>
+
+          <button
+            type="button"
+            data-action="delete"
+            data-slot="${slot}">
+            Löschen
+          </button>
+
+        </div>
+      `;
+    }
+
+    els.saveSlots.appendChild(div);
+  }
+}
+
+
+els.saveSlots.addEventListener(
+  "click",
+  event => {
+
+    const button =
+      event.target.closest(
+        "button"
+      );
+
+    if (!button) {
+      return;
+    }
+
+    const slot =
+      Number(button.dataset.slot);
+
+    const action =
+      button.dataset.action;
+
+    if (
+      !Number.isInteger(slot) ||
+      slot < 1 ||
+      slot > 3
+    ) {
+      return;
+    }
+
+    if (action === "save") {
+
+      currentSlot = slot;
+
+      saveGame(slot);
+
+      setMessage(
+        `Spielstand ${slot} gespeichert.`
+      );
+
+    }
+
+    if (action === "load") {
+
+      loadSlot(slot);
+    }
+
+    if (action === "delete") {
+
+      deleteSlot(slot);
+    }
+  }
+);
+
+
+/* =========================================================
+   NEW GAME
+========================================================= */
+
+document
+  .getElementById("newGame")
+  .addEventListener(
+    "click",
+    () => {
+
+      const confirmed =
+        confirm(
+          "Möchtest du wirklich ein neues Spiel starten?"
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      money =
+        START_MONEY;
+
+      population = 0;
+
+      year = 1;
+      month = 1;
+
+      selectedTool =
+        "select";
+
+      roadRotation = 0;
+
+      zoom = 1;
+
+      offsetX = 0;
+      offsetY = 0;
+
+      vehicles = [];
+
+      vehicleSpawnTimer = 0;
+
+      grid = {};
+
+      loans = [];
+
+      saveGame(currentSlot);
+
+      updateToolButtons();
+      updateUI();
+      updateBankUI();
+      draw();
+
+      setMessage(
+        "Neues Spiel gestartet."
+      );
+    }
+  );
+
+
+/* =========================================================
+   UI
+========================================================= */
+
+function updateUI() {
+
+  calculatePopulation();
+
+  const jobs =
+    calculateJobs();
+
+  const unemployed =
+    Math.max(
+      0,
+      population - jobs
+    );
+
+  const infra =
+    infrastructure();
+
+  const traffic =
+    calculateTraffic();
+
+  const satisfaction =
+    calculateSatisfaction();
+
+  const balance =
+    calculateBalance();
+
+  const demand =
+    calculateDemand();
+
+  els.money.textContent =
+    formatEuro(money);
+
+  els.population.textContent =
+    population.toLocaleString("de-DE");
+
+  els.vehicles.textContent =
+    vehicles.length;
+
+  els.satisfaction.textContent =
+    `${satisfaction}%`;
+
+  els.date.textContent =
+    `Jahr ${year} – Monat ${month}`;
+
+  els.housing.textContent =
+    countType("residential");
+
+  els.commercial.textContent =
+    countType("commercial");
+
+  els.industrial.textContent =
+    countType("industrial");
+
+  els.parks.textContent =
+    countType("park");
+
+  els.power.textContent =
+    `${Math.floor(infra.powerDemand)} / ${infra.powerCapacity}`;
+
+  els.water.textContent =
+    `${Math.floor(infra.waterDemand)} / ${infra.waterCapacity}`;
+
+  els.jobs.textContent =
+    jobs;
+
+  els.unemployed.textContent =
+    unemployed;
+
+  els.vehicleCount.textContent =
+    vehicles.length;
+
+  els.traffic.textContent =
+    `${traffic}%`;
+
+  els.satisfactionCity.textContent =
+    `${satisfaction}%`;
+
+  els.balance.textContent =
+    `${balance >= 0 ? "+" : ""}${balance.toLocaleString("de-DE")} €`;
+
+  els.debt.textContent =
+    formatEuro(calculateDebt());
+
+  els.loanPayment.textContent =
+    formatEuro(calculateLoanPayment());
+
+  els.interest.textContent =
+    formatEuro(calculateInterest());
+
+  els.demandResidential.style.width =
+    `${Math.max(0, demand.residential)}%`;
+
+  els.demandCommercial.style.width =
+    `${Math.max(0, demand.commercial)}%`;
+
+  els.demandIndustrial.style.width =
+    `${Math.max(0, demand.industrial)}%`;
+
+  if (
+    !infra.powerOK ||
+    !infra.waterOK
+  ) {
+
+    els.warning.classList.remove(
+      "hidden"
+    );
+
+    const warnings = [];
+
+    if (!infra.powerOK) {
+      warnings.push(
+        "Zu wenig Strom"
+      );
+    }
+
+    if (!infra.waterOK) {
+      warnings.push(
+        "Zu wenig Wasser"
+      );
+    }
+
+    els.warning.textContent =
+      warnings.join(" • ");
+
+  } else {
+
+    els.warning.classList.add(
+      "hidden"
+    );
+  }
+}
+
+
+/* =========================================================
+   TOOLS
+========================================================= */
+
+function updateToolButtons() {
+
+  document
+    .querySelectorAll("[data-tool]")
+    .forEach(button => {
+
+      button.classList.toggle(
+        "active",
+        button.dataset.tool ===
+          selectedTool
+      );
+    });
+}
+
+
+document
+  .querySelectorAll("[data-tool]")
+  .forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        selectedTool =
+          button.dataset.tool;
+
+        updateToolButtons();
+      }
+    );
+  });
+
+
+document
+  .getElementById("rotateRoad")
+  .addEventListener(
+    "click",
+    () => {
+
+      roadRotation =
+        roadRotation === 0
+          ? 1
+          : 0;
+
+      draw();
+
+      setMessage(
+        roadRotation === 0
+          ? "Straßenrichtung: horizontal"
+          : "Straßenrichtung: vertikal"
+      );
+    }
+  );
+
+
+window.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key.toLowerCase() === "r"
+    ) {
+
+      roadRotation =
+        roadRotation === 0
+          ? 1
+          : 0;
+
+      draw();
+    }
+  }
+);
+
+
+/* =========================================================
+   PATHFINDING
+========================================================= */
+
 function getRoads() {
 
-  return Object.entries(
-    grid
-  )
+  return Object.entries(grid)
     .filter(
       ([, tile]) =>
         tile.type === "road"
     )
     .map(
-      ([k]) => {
+      ([rawKey]) => {
 
         const [x, y] =
-          k.split(",")
+          rawKey
+            .split(",")
             .map(Number);
 
         return {
@@ -2500,17 +2152,13 @@ function getRoads() {
     );
 }
 
-function nearestRoad(
-  x,
-  y
-) {
+
+function nearestRoad(x, y) {
 
   const roads =
     getRoads();
 
-  if (
-    !roads.length
-  ) {
+  if (!roads.length) {
     return null;
   }
 
@@ -2520,10 +2168,7 @@ function nearestRoad(
   let bestDistance =
     Infinity;
 
-  for (
-    const road
-    of roads
-  ) {
+  for (const road of roads) {
 
     const distance =
       Math.abs(
@@ -2549,6 +2194,7 @@ function nearestRoad(
   return best;
 }
 
+
 function roadPath(
   start,
   goal
@@ -2561,8 +2207,7 @@ function roadPath(
     return [];
   }
 
-  const queue =
-    [start];
+  const queue = [start];
 
   const came =
     new Map();
@@ -2581,9 +2226,7 @@ function roadPath(
       goal.y
     );
 
-  while (
-    queue.length
-  ) {
+  while (queue.length) {
 
     const current =
       queue.shift();
@@ -2592,21 +2235,17 @@ function roadPath(
       key(
         current.x,
         current.y
-      ) ===
-      goalKey
+      ) === goalKey
     ) {
 
-      const path =
-        [];
+      const path = [];
 
       let p =
         current;
 
       while (p) {
 
-        path.unshift(
-          p
-        );
+        path.unshift(p);
 
         p =
           came.get(
@@ -2621,33 +2260,27 @@ function roadPath(
     }
 
     const neighbors = [
+
       {
-        x:
-          current.x + 1,
-        y:
-          current.y
+        x: current.x + 1,
+        y: current.y
       },
 
       {
-        x:
-          current.x - 1,
-        y:
-          current.y
+        x: current.x - 1,
+        y: current.y
       },
 
       {
-        x:
-          current.x,
-        y:
-          current.y + 1
+        x: current.x,
+        y: current.y + 1
       },
 
       {
-        x:
-          current.x,
-        y:
-          current.y - 1
+        x: current.x,
+        y: current.y - 1
       }
+
     ];
 
     for (
@@ -2666,9 +2299,7 @@ function roadPath(
           neighbor.x,
           neighbor.y
         ) ||
-        came.has(
-          neighborKey
-        )
+        came.has(neighborKey)
       ) {
         continue;
       }
@@ -2687,36 +2318,33 @@ function roadPath(
   return [];
 }
 
-function randomZone(
-  type
-) {
 
-  const candidates =
-    [];
+/* =========================================================
+   VEHICLE SPAWNING
+========================================================= */
+
+function randomZone(type) {
+
+  const candidates = [];
 
   for (
-    const [k, tile]
-    of Object.entries(
-      grid
-    )
+    const [rawKey, tile]
+    of Object.entries(grid)
   ) {
 
     if (
-      tile.type !==
-      type
+      tile.type !== type
     ) {
       continue;
     }
 
     const [x, y] =
-      k.split(",")
+      rawKey
+        .split(",")
         .map(Number);
 
     if (
-      hasAdjacentRoad(
-        x,
-        y
-      )
+      hasAdjacentRoad(x, y)
     ) {
 
       candidates.push({
@@ -2726,19 +2354,16 @@ function randomZone(
     }
   }
 
-  if (
-    !candidates.length
-  ) {
-    return null;
-  }
-
-  return candidates[
-    Math.floor(
-      Math.random() *
-      candidates.length
-    )
-  ];
+  return candidates.length
+    ? candidates[
+        Math.floor(
+          Math.random() *
+          candidates.length
+        )
+      ]
+    : null;
 }
+
 
 function spawnVehicle() {
 
@@ -2768,22 +2393,16 @@ function spawnVehicle() {
     return;
   }
 
-  const startRoad =
-    nearestRoad(
-      start.x,
-      start.y
-    );
-
-  const endRoad =
-    nearestRoad(
-      target.x,
-      target.y
-    );
-
   const route =
     roadPath(
-      startRoad,
-      endRoad
+      nearestRoad(
+        start.x,
+        start.y
+      ),
+      nearestRoad(
+        target.x,
+        target.y
+      )
     );
 
   if (
@@ -2793,6 +2412,7 @@ function spawnVehicle() {
   }
 
   vehicles.push({
+
     route,
 
     index: 0,
@@ -2801,14 +2421,12 @@ function spawnVehicle() {
 
     speed:
       1.8 +
-      Math.random() *
-      0.9
+      Math.random() * 0.9
   });
 }
 
-function updateVehicles(
-  delta
-) {
+
+function updateVehicles(delta) {
 
   vehicleSpawnTimer +=
     delta;
@@ -2820,16 +2438,13 @@ function updateVehicles(
         population / 8
       ) +
       Math.floor(
-        calculateJobs() /
-        10
+        calculateJobs() / 10
       )
     );
 
   if (
-    vehicleSpawnTimer >=
-    1.2 &&
-    vehicles.length <
-    desired
+    vehicleSpawnTimer >= 1.2 &&
+    vehicles.length < desired
   ) {
 
     vehicleSpawnTimer = 0;
@@ -2838,8 +2453,7 @@ function updateVehicles(
   }
 
   for (
-    let i =
-      vehicles.length - 1;
+    let i = vehicles.length - 1;
     i >= 0;
     i--
   ) {
@@ -2863,8 +2477,7 @@ function updateVehicles(
       delta;
 
     if (
-      vehicle.progress >=
-      1
+      vehicle.progress >= 1
     ) {
 
       vehicle.progress = 0;
@@ -2885,19 +2498,24 @@ function updateVehicles(
   }
 }
 
+
+/* =========================================================
+   MOUSE CONTROLS
+========================================================= */
+
 canvas.addEventListener(
   "mousedown",
-  e => {
+  event => {
 
     lastPointer = {
-      x: e.clientX,
-      y: e.clientY
+      x: event.clientX,
+      y: event.clientY
     };
 
     movedPointer = false;
 
     if (
-      e.button === 1
+      event.button === 1
     ) {
 
       panning = true;
@@ -2906,7 +2524,7 @@ canvas.addEventListener(
     }
 
     if (
-      e.button === 0
+      event.button === 0
     ) {
 
       building =
@@ -2917,14 +2535,12 @@ canvas.addEventListener(
           selectedTool
         );
 
-      if (
-        building
-      ) {
+      if (building) {
 
         const p =
           screenToWorld(
-            e.clientX,
-            e.clientY
+            event.clientX,
+            event.clientY
           );
 
         buildAt(
@@ -2938,30 +2554,29 @@ canvas.addEventListener(
   }
 );
 
+
 window.addEventListener(
   "mousemove",
-  e => {
+  event => {
 
     const dx =
-      e.clientX -
+      event.clientX -
       lastPointer.x;
 
     const dy =
-      e.clientY -
+      event.clientY -
       lastPointer.y;
 
     if (
       Math.abs(dx) +
-      Math.abs(dy) > 1
+      Math.abs(dy) >
+      1
     ) {
 
-      movedPointer =
-        true;
+      movedPointer = true;
     }
 
-    if (
-      panning
-    ) {
+    if (panning) {
 
       offsetX += dx;
       offsetY += dy;
@@ -2969,14 +2584,12 @@ window.addEventListener(
       draw();
     }
 
-    if (
-      building
-    ) {
+    if (building) {
 
       const p =
         screenToWorld(
-          e.clientX,
-          e.clientY
+          event.clientX,
+          event.clientY
         );
 
       buildAt(
@@ -2988,11 +2601,12 @@ window.addEventListener(
     }
 
     lastPointer = {
-      x: e.clientX,
-      y: e.clientY
+      x: event.clientX,
+      y: event.clientY
     };
   }
 );
+
 
 window.addEventListener(
   "mouseup",
@@ -3003,27 +2617,24 @@ window.addEventListener(
   }
 );
 
+
 canvas.addEventListener(
   "click",
-  e => {
+  event => {
 
-    if (
-      movedPointer
-    ) {
+    if (movedPointer) {
       return;
     }
 
     if (
-      selectedTool ===
-        "select" ||
-      selectedTool ===
-        "bulldoze"
+      selectedTool === "select" ||
+      selectedTool === "bulldoze"
     ) {
 
       const p =
         screenToWorld(
-          e.clientX,
-          e.clientY
+          event.clientX,
+          event.clientY
         );
 
       buildAt(
@@ -3035,16 +2646,17 @@ canvas.addEventListener(
   }
 );
 
+
 canvas.addEventListener(
   "contextmenu",
-  e => {
+  event => {
 
-    e.preventDefault();
+    event.preventDefault();
 
     const p =
       screenToWorld(
-        e.clientX,
-        e.clientY
+        event.clientX,
+        event.clientY
       );
 
     buildAt(
@@ -3055,42 +2667,41 @@ canvas.addEventListener(
   }
 );
 
+
+/* =========================================================
+   ZOOM
+========================================================= */
+
 canvas.addEventListener(
   "wheel",
-  e => {
+  event => {
 
-    e.preventDefault();
+    event.preventDefault();
 
-    const r =
+    const rect =
       canvas.getBoundingClientRect();
 
     const mx =
-      e.clientX -
-      r.left;
+      event.clientX -
+      rect.left;
 
     const my =
-      e.clientY -
-      r.top;
+      event.clientY -
+      rect.top;
 
     const oldZoom =
       zoom;
 
     const wx =
-      (
-        mx -
-        offsetX
-      ) /
+      (mx - offsetX) /
       oldZoom;
 
     const wy =
-      (
-        my -
-        offsetY
-      ) /
+      (my - offsetY) /
       oldZoom;
 
     zoom *=
-      e.deltaY < 0
+      event.deltaY < 0
         ? 1.1
         : 0.9;
 
@@ -3118,8 +2729,12 @@ canvas.addEventListener(
   }
 );
 
-let touches =
-  new Map();
+
+/* =========================================================
+   TOUCH CONTROLS
+========================================================= */
+
+let touches = new Map();
 
 let touchMoved = false;
 
@@ -3127,29 +2742,23 @@ let pinchStartDistance = 0;
 
 let pinchStartZoom = 1;
 
+
 canvas.addEventListener(
   "touchstart",
-  e => {
+  event => {
 
     for (
       const touch
-      of e.changedTouches
+      of event.changedTouches
     ) {
 
       touches.set(
         touch.identifier,
         {
-          x:
-            touch.clientX,
-
-          y:
-            touch.clientY,
-
-          startX:
-            touch.clientX,
-
-          startY:
-            touch.clientY
+          x: touch.clientX,
+          y: touch.clientY,
+          startX: touch.clientX,
+          startY: touch.clientY
         }
       );
     }
@@ -3170,15 +2779,16 @@ canvas.addEventListener(
   }
 );
 
+
 canvas.addEventListener(
   "touchmove",
-  e => {
+  event => {
 
-    e.preventDefault();
+    event.preventDefault();
 
     for (
       const touch
-      of e.changedTouches
+      of event.changedTouches
     ) {
 
       const data =
@@ -3186,32 +2796,33 @@ canvas.addEventListener(
           touch.identifier
         );
 
-      if (data) {
-
-        const dx =
-          touch.clientX -
-          data.startX;
-
-        const dy =
-          touch.clientY -
-          data.startY;
-
-        if (
-          Math.hypot(
-            dx,
-            dy
-          ) > 6
-        ) {
-
-          touchMoved = true;
-        }
-
-        data.x =
-          touch.clientX;
-
-        data.y =
-          touch.clientY;
+      if (!data) {
+        continue;
       }
+
+      const dx =
+        touch.clientX -
+        data.startX;
+
+      const dy =
+        touch.clientY -
+        data.startY;
+
+      if (
+        Math.hypot(
+          dx,
+          dy
+        ) > 6
+      ) {
+
+        touchMoved = true;
+      }
+
+      data.x =
+        touch.clientX;
+
+      data.y =
+        touch.clientY;
     }
 
     if (
@@ -3219,9 +2830,7 @@ canvas.addEventListener(
     ) {
 
       const data =
-        [
-          ...touches.values()
-        ][0];
+        [...touches.values()][0];
 
       const dx =
         data.x -
@@ -3272,15 +2881,16 @@ canvas.addEventListener(
   }
 );
 
+
 canvas.addEventListener(
   "touchend",
-  e => {
+  event => {
 
-    e.preventDefault();
+    event.preventDefault();
 
     for (
       const touch
-      of e.changedTouches
+      of event.changedTouches
     ) {
 
       const data =
@@ -3326,12 +2936,11 @@ canvas.addEventListener(
   }
 );
 
+
 function getTouchDistance() {
 
   const values =
-    [
-      ...touches.values()
-    ];
+    [...touches.values()];
 
   if (
     values.length < 2
@@ -3348,7 +2957,10 @@ function getTouchDistance() {
   );
 }
 
-loadSlot(1);
+
+/* =========================================================
+   START GAME
+========================================================= */
 
 if (
   !localStorage.getItem(
@@ -3360,37 +2972,47 @@ if (
     START_MONEY;
 
   saveGame();
+
+} else {
+
+  loadSlot(1);
 }
+
+
+updateSaveSlots();
+
+updateBankUI();
 
 updateUI();
 
 resizeCanvas();
 
+
+/* =========================================================
+   GAME TIME
+========================================================= */
+
 setInterval(
   advanceMonth,
-  20000
+  MONTH_MS
 );
 
-function gameLoop(
-  now
-) {
+
+/* =========================================================
+   GAME LOOP
+========================================================= */
+
+function gameLoop(now) {
 
   const delta =
     Math.min(
       0.1,
-      (
-        now -
-        lastFrame
-      ) /
-      1000
+      (now - lastFrame) / 1000
     );
 
-  lastFrame =
-    now;
+  lastFrame = now;
 
-  updateVehicles(
-    delta
-  );
+  updateVehicles(delta);
 
   updateUI();
 
@@ -3400,6 +3022,7 @@ function gameLoop(
     gameLoop
   );
 }
+
 
 requestAnimationFrame(
   gameLoop
