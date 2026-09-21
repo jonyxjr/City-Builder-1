@@ -50,19 +50,13 @@ body {
 .stats {
   display: flex;
   align-items: center;
-  gap: 18px;
-  font-size: 13px;
+  gap: 15px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
-main {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-
 .sidebar {
-  width: 300px;
+  width: 310px;
   flex-shrink: 0;
   padding: 14px;
   overflow-y: auto;
@@ -82,15 +76,14 @@ main {
 
 .tool {
   width: 100%;
-  padding: 10px;
+  padding: 9px;
   border: 1px solid #374151;
   border-radius: 8px;
   background: #202b3a;
   color: #fff;
   text-align: left;
   cursor: pointer;
-  font-size: 13px;
-  -webkit-tap-highlight-color: transparent;
+  font-size: 12px;
 }
 
 .tool:hover,
@@ -108,27 +101,6 @@ main {
   color: #bfdbfe;
 }
 
-kbd {
-  padding: 1px 5px;
-  border: 1px solid #6b7280;
-  border-radius: 4px;
-  background: #111827;
-  color: #e5e7eb;
-  font-family: inherit;
-  font-size: 10px;
-}
-
-.help {
-  margin: 14px 0 0;
-  color: #9ca3af;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.help p {
-  margin: 5px 0;
-}
-
 .panel {
   margin-top: 12px;
   padding: 12px;
@@ -144,9 +116,29 @@ kbd {
 .row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.panel-button,
+.danger-button {
+  width: 100%;
+  margin-top: 9px;
+  padding: 9px;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  color: white;
+  background: #2563eb;
+}
+
+.danger-button {
+  background: #991b1b;
+}
+
+.danger-button:hover {
+  background: #b91c1c;
 }
 
 .demand-row {
@@ -180,7 +172,7 @@ kbd {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .message {
@@ -206,10 +198,165 @@ canvas {
   touch-action: none;
 }
 
+.save-slot {
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid #374151;
+  border-radius: 7px;
+  background: #17202d;
+  font-size: 10px;
+}
+
+.save-slot-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.save-slot-info {
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+.slot-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.slot-buttons button {
+  flex: 1;
+  padding: 5px;
+  border: 0;
+  border-radius: 5px;
+  background: #374151;
+  color: white;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.slot-buttons button:hover {
+  background: #4b5563;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.modal-box {
+  width: min(500px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid #4b5563;
+  border-radius: 12px;
+  background: #1f2937;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-header button {
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.bank-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 15px 0;
+}
+
+.bank-info div {
+  padding: 10px;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.bank-info span {
+  display: block;
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.bank-info strong {
+  display: block;
+  margin-top: 5px;
+}
+
+.modal-box h3 {
+  font-size: 13px;
+  margin-top: 18px;
+}
+
+.loan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.loan-button {
+  padding: 11px;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background: #263448;
+  color: white;
+  cursor: pointer;
+}
+
+.loan-button:hover {
+  background: #374151;
+}
+
+.loan-button small {
+  display: block;
+  margin-top: 3px;
+  color: #9ca3af;
+}
+
+.loan-info {
+  margin-top: 12px;
+  padding: 9px;
+  border-radius: 7px;
+  background: #111827;
+  color: #d1d5db;
+  font-size: 11px;
+}
+
+.loan-card {
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 8px;
+  background: #111827;
+  font-size: 11px;
+}
+
+.loan-card strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
 @media (max-width: 700px) {
+
   .topbar {
     height: 56px;
-    padding: 0 9px;
+    padding: 0 8px;
   }
 
   .topbar h1 {
@@ -221,16 +368,17 @@ canvas {
   }
 
   .subtitle {
-    font-size: 9px;
+    font-size: 8px;
   }
 
   .stats {
-    gap: 7px;
-    font-size: 10px;
+    gap: 6px;
+    font-size: 9px;
   }
 
   .stats div:nth-child(2),
-  .stats div:nth-child(3) {
+  .stats div:nth-child(3),
+  .stats div:nth-child(4) {
     display: none;
   }
 
@@ -244,15 +392,14 @@ canvas {
     left: 0;
     bottom: 0;
     width: 100%;
-    max-height: 41%;
+    max-height: 43%;
     padding: 7px;
     border-right: 0;
     border-top: 1px solid #374151;
-    background: rgba(23, 32, 45, 0.96);
+    background: rgba(23, 32, 45, 0.97);
   }
 
   .sidebar > h2,
-  .help,
   .panel {
     display: none;
   }
@@ -263,17 +410,17 @@ canvas {
   }
 
   .tool {
-    min-height: 43px;
-    padding: 6px 3px;
+    min-height: 41px;
+    padding: 5px 2px;
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .tool small {
     display: block;
     float: none;
     margin-top: 2px;
-    font-size: 8px;
+    font-size: 7px;
   }
 
   .rotate-road {
@@ -281,13 +428,7 @@ canvas {
   }
 
   .message {
-    margin: 5px 0 0;
+    margin: 4px 0 0;
     text-align: center;
-    font-size: 10px;
-  }
-
-  .game-area {
-    width: 100%;
-    height: 100%;
   }
 }
