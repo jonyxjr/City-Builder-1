@@ -55,11 +55,21 @@ body {
   white-space: nowrap;
 }
 
+main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .sidebar {
   width: 310px;
+  height: 100%;
   flex-shrink: 0;
   padding: 14px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #17202d;
   border-right: 1px solid #374151;
 }
@@ -162,6 +172,10 @@ body {
   transition: width 0.2s ease;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .warning {
   margin-top: 12px;
   padding: 9px;
@@ -169,10 +183,6 @@ body {
   background: #5b3a08;
   color: #fde68a;
   font-size: 11px;
-}
-
-.hidden {
-  display: none !important;
 }
 
 .message {
@@ -274,6 +284,8 @@ canvas {
   color: white;
   font-size: 25px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .bank-info {
@@ -318,16 +330,47 @@ canvas {
   background: #263448;
   color: white;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .loan-button:hover {
   background: #374151;
 }
 
+.loan-button.selected {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+}
+
 .loan-button small {
   display: block;
   margin-top: 3px;
   color: #9ca3af;
+}
+
+.confirm-loan {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #16a34a;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.confirm-loan:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.confirm-loan:disabled {
+  background: #374151;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .loan-info {
@@ -337,6 +380,7 @@ canvas {
   background: #111827;
   color: #d1d5db;
   font-size: 11px;
+  line-height: 1.5;
 }
 
 .loan-card {
@@ -345,6 +389,7 @@ canvas {
   border-radius: 8px;
   background: #111827;
   font-size: 11px;
+  line-height: 1.5;
 }
 
 .loan-card strong {
@@ -430,5 +475,18 @@ canvas {
   .message {
     margin: 4px 0 0;
     text-align: center;
+  }
+
+  .modal {
+    padding: 8px;
+  }
+
+  .modal-box {
+    max-height: 92vh;
+    padding: 14px;
+  }
+
+  .bank-info {
+    grid-template-columns: 1fr 1fr;
   }
 }
