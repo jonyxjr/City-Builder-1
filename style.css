@@ -31,6 +31,14 @@ body {
   border-bottom: 1px solid #374151;
 }
 
+main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .topbar h1 {
   margin: 0;
   font-size: 21px;
@@ -57,9 +65,11 @@ body {
 
 .sidebar {
   width: 310px;
+  height: 100%;
   flex-shrink: 0;
   padding: 14px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #17202d;
   border-right: 1px solid #374151;
 }
