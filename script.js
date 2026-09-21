@@ -2150,14 +2150,20 @@ document
     openBank
   );
 
-document
-  .getElementById(
-    "closeBank"
-  )
-  .addEventListener(
-    "click",
-    closeBank
-  );
+const closeBankButton = document.getElementById("closeBank");
+
+closeBankButton.addEventListener("click", function (event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  else.bankModal.classList.add("hidden");
+});
+
+els.bankModal.addEventListener("click", function (event){
+  if (event.target === els.bankModel) {
+    els.bankModal.classList.add("hidden");
+  }
+});
 
 function getLoanRate(amount) {
 
