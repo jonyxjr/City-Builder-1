@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>City Builder 1 — v0.6.2</title>
+  <title>City Builder 1 — v0.7</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -14,16 +14,15 @@
   <div>
     <h1>
       City Builder 1
-      <span>v0.6.2</span>
+      <span>v0.7</span>
     </h1>
 
     <div class="subtitle">
-      City Development & Economy Update
+      Life and Simulation Update
     </div>
   </div>
 
   <div class="stats">
-
     <div>
       💰
       <strong id="money">100.000 €</strong>
@@ -46,11 +45,16 @@
 
     <div>
       📅
-      <strong id="date">
-        Jahr 1 – Monat 1
-      </strong>
+      <strong id="date">Jahr 1 – Monat 1</strong>
     </div>
 
+    <div class="time-controls" aria-label="Spielgeschwindigkeit">
+      <button id="pauseGame" class="time-button" type="button" aria-label="Spiel pausieren oder fortsetzen">⏸</button>
+      <button class="time-button speed-button active" data-speed="1" type="button">1×</button>
+      <button class="time-button speed-button" data-speed="2" type="button">2×</button>
+      <button class="time-button speed-button" data-speed="4" type="button">4×</button>
+      <button class="time-button speed-button" data-speed="8" type="button">8×</button>
+    </div>
   </div>
 
 </header>
@@ -64,92 +68,44 @@
 
     <div class="toolbar">
 
-      <button
-        data-tool="select"
-        class="tool active"
-        type="button"
-      >
+      <button data-tool="select" class="tool active" type="button">
         🖱️ Auswählen
       </button>
 
-      <button
-        data-tool="road"
-        class="tool"
-        type="button"
-      >
-        🛣️ Straße
-        <small>50 €</small>
+      <button data-tool="road" class="tool" type="button">
+        🛣️ Straße <small>50 €</small>
       </button>
 
-      <button
-        data-tool="power"
-        class="tool"
-        type="button"
-      >
-        ⚡ Kraftwerk
-        <small>5.000 €</small>
+      <button data-tool="power" class="tool" type="button">
+        ⚡ Kraftwerk <small>5.000 €</small>
       </button>
 
-      <button
-        data-tool="water"
-        class="tool"
-        type="button"
-      >
-        💧 Wasserwerk
-        <small>4.000 €</small>
+      <button data-tool="water" class="tool" type="button">
+        💧 Wasserwerk <small>4.000 €</small>
       </button>
 
-      <button
-        data-tool="residential"
-        class="tool"
-        type="button"
-      >
-        🏠 Wohnen
-        <small>500 €</small>
+      <button data-tool="residential" class="tool" type="button">
+        🏠 Wohnzone <small>0 €</small>
       </button>
 
-      <button
-        data-tool="commercial"
-        class="tool"
-        type="button"
-      >
-        🏪 Gewerbe
-        <small>800 €</small>
+      <button data-tool="commercial" class="tool" type="button">
+        🏪 Gewerbezone <small>0 €</small>
       </button>
 
-      <button
-        data-tool="industrial"
-        class="tool"
-        type="button"
-      >
-        🏭 Industrie
-        <small>1.000 €</small>
+      <button data-tool="industrial" class="tool" type="button">
+        🏭 Industriezone <small>0 €</small>
       </button>
 
-      <button
-        data-tool="park"
-        class="tool"
-        type="button"
-      >
-        🌳 Park
-        <small>750 €</small>
+      <button data-tool="park" class="tool" type="button">
+        🌳 Park <small>750 €</small>
       </button>
 
-      <button
-        data-tool="bulldoze"
-        class="tool"
-        type="button"
-      >
+      <button data-tool="bulldoze" class="tool" type="button">
         🗑️ Abriss
       </button>
 
-      <button
-        id="rotateRoad"
-        class="tool rotate-road"
-        type="button"
-      >
-        🔄 Straße drehen
-        <kbd>R</kbd>
+      <button id="rotateRoad" class="tool rotate-road" type="button">
+        🔄 Straße drehen <kbd>R</kbd>
       </button>
 
     </div>
@@ -160,7 +116,7 @@
       <h2>Stadt</h2>
 
       <div class="row">
-        <span>🏠 Wohngebiete</span>
+        <span>🏠 Wohngebäude</span>
         <strong id="housing">0</strong>
       </div>
 
@@ -177,6 +133,21 @@
       <div class="row">
         <span>🌳 Parks</span>
         <strong id="parks">0</strong>
+      </div>
+
+      <div class="row">
+        <span>🟩 Wohnzonen</span>
+        <strong id="residentialZones">0</strong>
+      </div>
+
+      <div class="row">
+        <span>🟪 Gewerbezonen</span>
+        <strong id="commercialZones">0</strong>
+      </div>
+
+      <div class="row">
+        <span>🟧 Industriezonen</span>
+        <strong id="industrialZones">0</strong>
       </div>
 
       <div class="row">
@@ -227,33 +198,18 @@
       <h2>Nachfrage</h2>
 
       <div class="demand-row">
-
         <span>🏠 Wohnen</span>
-
-        <div class="bar">
-          <i id="demandResidential"></i>
-        </div>
-
+        <div class="bar"><i id="demandResidential"></i></div>
       </div>
 
       <div class="demand-row">
-
         <span>🏪 Gewerbe</span>
-
-        <div class="bar">
-          <i id="demandCommercial"></i>
-        </div>
-
+        <div class="bar"><i id="demandCommercial"></i></div>
       </div>
 
       <div class="demand-row">
-
         <span>🏭 Industrie</span>
-
-        <div class="bar">
-          <i id="demandIndustrial"></i>
-        </div>
-
+        <div class="bar"><i id="demandIndustrial"></i></div>
       </div>
 
     </section>
@@ -278,11 +234,7 @@
         <strong id="interest">0 €</strong>
       </div>
 
-      <button
-        id="openBank"
-        class="panel-button"
-        type="button"
-      >
+      <button id="openBank" class="panel-button" type="button">
         🏦 Bank öffnen
       </button>
 
@@ -295,149 +247,80 @@
 
       <div id="saveSlots"></div>
 
-      <button
-        id="newGame"
-        class="danger-button"
-        type="button"
-      >
+      <button id="newGame" class="danger-button" type="button">
         🔄 Neues Spiel
       </button>
 
     </section>
 
 
-    <div
-      id="warning"
-      class="warning hidden"
-    ></div>
-
-    <div
-      id="message"
-      class="message"
-    ></div>
+    <div id="warning" class="warning hidden"></div>
+    <div id="message" class="message"></div>
 
   </aside>
 
 
   <section class="game-area">
-
     <canvas id="gameCanvas"></canvas>
-
   </section>
 
 </main>
 
 
-<div
-  id="bankModal"
-  class="modal hidden"
->
+<div id="bankModal" class="modal hidden">
 
   <div class="modal-box">
 
     <div class="modal-header">
-
       <h2>🏦 Bank</h2>
-
-      <button
-        id="closeBank"
-        type="button"
-      >
-        ×
-      </button>
-
+      <button id="closeBank" type="button">×</button>
     </div>
-
 
     <div class="bank-info">
-
       <div>
-
         <span>Kontostand</span>
-
-        <strong id="bankMoney">
-          100.000 €
-        </strong>
-
+        <strong id="bankMoney">100.000 €</strong>
       </div>
 
       <div>
-
         <span>Aktuelle Schulden</span>
-
-        <strong id="bankDebt">
-          0 €
-        </strong>
-
+        <strong id="bankDebt">0 €</strong>
       </div>
-
     </div>
-
 
     <h3>Kredit aufnehmen</h3>
 
-
     <div class="loan-grid">
-
-      <button
-        class="loan-button"
-        type="button"
-        data-loan="10000"
-      >
+      <button class="loan-button" type="button" data-loan="10000">
         10.000 €
         <small>5 % Zinsen</small>
       </button>
 
-      <button
-        class="loan-button"
-        type="button"
-        data-loan="25000"
-      >
+      <button class="loan-button" type="button" data-loan="25000">
         25.000 €
         <small>5 % Zinsen</small>
       </button>
 
-      <button
-        class="loan-button"
-        type="button"
-        data-loan="50000"
-      >
+      <button class="loan-button" type="button" data-loan="50000">
         50.000 €
         <small>5 % Zinsen</small>
       </button>
 
-      <button
-        class="loan-button"
-        type="button"
-        data-loan="100000"
-      >
+      <button class="loan-button" type="button" data-loan="100000">
         100.000 €
         <small>6 % Zinsen</small>
       </button>
-
     </div>
 
-
-    <div
-      id="loanInfo"
-      class="loan-info"
-    >
+    <div id="loanInfo" class="loan-info">
       Wähle einen Kredit.
     </div>
 
-
-    <button
-      id="confirmLoan"
-      class="confirm-loan"
-      type="button"
-      disabled
-    >
+    <button id="confirmLoan" class="confirm-loan" type="button" disabled>
       Kredit aufnehmen
     </button>
 
-
     <h3>Aktive Kredite</h3>
-
     <div id="loanList"></div>
 
   </div>
