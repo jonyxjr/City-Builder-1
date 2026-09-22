@@ -25,7 +25,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   padding: 0 18px;
   background: #1f2937;
   border-bottom: 1px solid #374151;
@@ -50,9 +50,42 @@ body {
 .stats {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+  border-left: 1px solid #374151;
+}
+
+.time-button {
+  min-width: 32px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid #4b5563;
+  border-radius: 7px;
+  background: #202b3a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.time-button:hover,
+.time-button.active {
+  background: #374151;
+  border-color: #93c5fd;
+}
+
+.time-button.paused {
+  background: #7f1d1d;
+  border-color: #ef4444;
 }
 
 main {
@@ -94,6 +127,8 @@ main {
   text-align: left;
   cursor: pointer;
   font-size: 12px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tool:hover,
@@ -141,6 +176,8 @@ main {
   cursor: pointer;
   color: white;
   background: #2563eb;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .danger-button {
@@ -241,6 +278,7 @@ canvas {
   color: white;
   cursor: pointer;
   font-size: 10px;
+  touch-action: manipulation;
 }
 
 .slot-buttons button:hover {
@@ -334,10 +372,7 @@ canvas {
   -webkit-tap-highlight-color: transparent;
 }
 
-.loan-button:hover {
-  background: #374151;
-}
-
+.loan-button:hover,
 .loan-button.selected {
   background: #1d4ed8;
   border-color: #60a5fa;
@@ -397,11 +432,30 @@ canvas {
   margin-bottom: 5px;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
+  .stats {
+    gap: 7px;
+    font-size: 10px;
+  }
 
+  .time-controls {
+    gap: 3px;
+    padding-left: 3px;
+  }
+
+  .time-button {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 5px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 700px) {
   .topbar {
-    height: 56px;
+    height: 58px;
     padding: 0 8px;
+    gap: 6px;
   }
 
   .topbar h1 {
@@ -417,14 +471,19 @@ canvas {
   }
 
   .stats {
-    gap: 6px;
+    gap: 5px;
     font-size: 9px;
   }
 
-  .stats div:nth-child(2),
-  .stats div:nth-child(3),
-  .stats div:nth-child(4) {
+  .stats > div:nth-child(2),
+  .stats > div:nth-child(3),
+  .stats > div:nth-child(4),
+  .stats > div:nth-child(5) {
     display: none;
+  }
+
+  .stats .time-controls {
+    display: flex;
   }
 
   main {
@@ -484,9 +543,5 @@ canvas {
   .modal-box {
     max-height: 92vh;
     padding: 14px;
-  }
-
-  .bank-info {
-    grid-template-columns: 1fr 1fr;
   }
 }
